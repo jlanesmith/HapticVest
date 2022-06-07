@@ -1,5 +1,7 @@
 from time import sleep
 from pynput.keyboard import Key, Listener
+import random
+import math
 
 import sys
 sys.path.append("..")
@@ -23,6 +25,7 @@ maxRangeVibration = 50
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']']
 sweepDirections = [0,0,1,2,2,3,3,4,4,5,6,6]
 accidentals = [-1,1,-1,0,-1,-1,1,-1,1,-1,0,-1] # -1 none, 0 flat, 1 sharp
+noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 oldDirections = [
   [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]], # down
@@ -55,11 +58,21 @@ def on_press(key):
     # Stop listener
     resetRange()
     return False
+  if key == Key.space:
+    keyNum = random.randint(0,23)
+    runVibrations(keyNum)
+    sleep(1)
+    print(noteNames[keyNum%12], (math.floor(keyNum/12)+1))
   if hasattr(key, 'char') and key.char in keys:
     keyNum = keys.index(key.char)
-    moveRange(pointOfVibration, keyNum/8)
-    sweep(sweepDirections[keyNum%12])
-    vibrateAccidental(accidentals[keyNum%12])
+    runVibrations(keyNum)
+
+
+def runVibrations(keyNum):
+  global pointOfVibration
+  moveRange(pointOfVibration, keyNum/8)
+  sweep(sweepDirections[keyNum%12])
+  vibrateAccidental(accidentals[keyNum%12])
 
 
 def moveRange(oldPOV, newPOV):
