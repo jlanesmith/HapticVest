@@ -3,12 +3,21 @@ from pynput.keyboard import Key, Listener
 import random
 import math
 
+import os
+import pygame as pg
+import pygame.midi
+
 import sys
 sys.path.append("..")
 from HapticVest.bhaptics import haptic_player
 
 player = haptic_player.HapticPlayer()
 sleep(3) # Needs a few seconds to boot up or something
+print("Begin!")
+
+mode = 1
+# 0 = Computer keyboard
+# 1 = Piano keyboard
 
 # Setup
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
@@ -47,9 +56,19 @@ directions = [
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
 
-
 keyNum = 0 # Between 0 and 24
 pointOfVibration = 1.5 # 0 to 3
+
+def doRandomNote():
+  keyNum = random.randint(0,23)
+  runVibrations(keyNum)
+  sleep(1)
+  print(noteNames[keyNum%12], (math.floor(keyNum/12)+1))
+
+
+###########################
+# Computer Keyboard Input #
+###########################
 
 def on_press(key):
   print('{0} pressed'.format(
@@ -59,14 +78,89 @@ def on_press(key):
     resetRange()
     return False
   if key == Key.space:
-    keyNum = random.randint(0,23)
-    runVibrations(keyNum)
-    sleep(1)
-    print(noteNames[keyNum%12], (math.floor(keyNum/12)+1))
+    doRandomNote()
   if hasattr(key, 'char') and key.char in keys:
     keyNum = keys.index(key.char)
     runVibrations(keyNum)
 
+
+#######################
+# MIDI Keyboard Input #
+#######################
+
+def print_midi_device_info():
+    pygame.midi.init()
+    _print_midi_device_info()
+    pygame.midi.quit()
+
+
+def _print_midi_device_info():
+    for i in range(pygame.midi.get_count()):
+        r = pygame.midi.get_device_info(i)
+        (interf, name, input, output, opened) = r
+
+        in_out = ""
+        if input:
+            in_out = "(input)"
+        if output:
+            in_out = "(output)"
+
+        print(
+            "%2i: interface :%s:, name :%s:, opened :%s:  %s"
+            % (i, interf, name, opened, in_out)
+        )
+
+def midi_input_main(device_id=None):
+    pg.init()
+    pg.fastevent.init()
+    event_get = pg.fastevent.get
+    event_post = pg.fastevent.post
+
+    pygame.midi.init()
+
+    # _print_midi_device_info()
+
+    if device_id is None:
+        input_id = pygame.midi.get_default_input_id()
+    else:
+        input_id = device_id
+
+    # print("using input_id :%s:" % input_id)
+    i = pygame.midi.Input(input_id)
+
+    pg.display.set_mode((1, 1))
+
+    going = True
+    while going:
+        events = event_get()
+        for e in events:
+            if e.type in [pg.QUIT]:
+                going = False
+            if e.type in [pg.KEYDOWN]:
+                going = False
+            if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
+                resetRange()
+                going = False
+            elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
+                doRandomNote()
+            elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
+                print(e.data1)
+                runVibrations(e.data1 - 60)
+
+        if i.poll():
+            midi_events = i.read(10)
+            # convert them into pygame events.
+            midi_evs = pygame.midi.midis2events(midi_events, i.device_id)
+
+            for m_e in midi_evs:
+                event_post(m_e)
+    del i
+    pygame.midi.quit()
+
+
+##############
+# Main Logic #
+##############
 
 def runVibrations(keyNum):
   global pointOfVibration
@@ -74,12 +168,10 @@ def runVibrations(keyNum):
   sweep(sweepDirections[keyNum%12])
   vibrateAccidental(accidentals[keyNum%12])
 
-
 def moveRange(oldPOV, newPOV):
   global pointOfVibration
   for i in range(int(rangeTime/rangeUpdateTime)): # Time between each update
     pointOfVibration = oldPOV + (newPOV - oldPOV)*((1+i)/(rangeTime/rangeUpdateTime))
-    print(pointOfVibration)
     for index, rangeInfo in enumerate(getRangeInfo(pointOfVibration)):
       player.submit_dot("range" + str(index), "VestFront", [{"index": rangePins[int(rangeInfo[0])], "intensity": int(rangeInfo[1])}], 10000)
     sleep(rangeUpdateTime/1000)
@@ -87,7 +179,6 @@ def moveRange(oldPOV, newPOV):
 def resetRange():
     player.submit_dot("range0", "VestFront", [{"index": 90, "intensity": 0}], 1)
     player.submit_dot("range1", "VestFront", [{"index": 91, "intensity": 0}], 1)
-
 
 def sweep(direction):
   # direction: see 3d array
@@ -101,13 +192,11 @@ def sweep(direction):
     else:
       sleep(sweepTime/1000)
 
-
 def vibrateAccidental(isSharp):
   if (isSharp == 0 or isSharp == 1):
     player.submit_dot("accidental1", "VestFront", [{"index": accidentalPins[isSharp][0], "intensity": 50}], accidentalTime)
     player.submit_dot("accidental2", "VestFront", [{"index": accidentalPins[isSharp][1], "intensity": 50}], accidentalTime)
     sleep(accidentalTime/1000)
-
 
 def getRangeInfo(POV): # point of vibration
   justOneActuator = [0,1,2,3]
@@ -120,7 +209,9 @@ def getRangeInfo(POV): # point of vibration
   elif POV > 2 and POV < 3:
     return [[2, (3-POV)*maxRangeVibration], [3, (POV-2)*maxRangeVibration]]
   
-
-with Listener(
-    on_press=on_press) as listener:
-  listener.join()
+if mode == 0:
+  with Listener(
+      on_press=on_press) as listener:
+    listener.join()
+else:
+  midi_input_main(1)
