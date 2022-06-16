@@ -6,6 +6,8 @@ import math
 import os
 import pygame as pg
 import pygame.midi
+import pygame.mixer
+pygame.mixer.init()
 
 import sys
 sys.path.append("..")
@@ -15,9 +17,10 @@ player = haptic_player.HapticPlayer()
 sleep(3) # Needs a few seconds to boot up or something
 print("Begin!")
 
-mode = 1
-# 0 = Computer keyboard
-# 1 = Piano keyboard
+isPiano = True # Whether using piano keyboard or computer keyboard
+isTesting = True # Whether you're testing yourself or just learning the notes
+correctNote = 0 # MIDI number of correct note, if isTesting = True
+isGuessed = True # Whether the correct note has been guessed yet
 
 # Setup
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
@@ -60,7 +63,9 @@ keyNum = 0 # Between 0 and 24
 pointOfVibration = 1.5 # 0 to 3
 
 def doRandomNote():
+  global correctNote
   keyNum = random.randint(0,23)
+  correctNote = 60 + keyNum
   runVibrations(keyNum)
   sleep(1)
   print(noteNames[keyNum%12], (math.floor(keyNum/12)+1))
@@ -89,73 +94,86 @@ def on_press(key):
 #######################
 
 def print_midi_device_info():
-    pygame.midi.init()
-    _print_midi_device_info()
-    pygame.midi.quit()
+  pygame.midi.init()
+  _print_midi_device_info()
+  pygame.midi.quit()
 
 
 def _print_midi_device_info():
-    for i in range(pygame.midi.get_count()):
-        r = pygame.midi.get_device_info(i)
-        (interf, name, input, output, opened) = r
+  for i in range(pygame.midi.get_count()):
+    r = pygame.midi.get_device_info(i)
+    (interf, name, input, output, opened) = r
 
-        in_out = ""
-        if input:
-            in_out = "(input)"
-        if output:
-            in_out = "(output)"
+    in_out = ""
+    if input:
+      in_out = "(input)"
+    if output:
+      in_out = "(output)"
 
-        print(
-            "%2i: interface :%s:, name :%s:, opened :%s:  %s"
-            % (i, interf, name, opened, in_out)
-        )
+    print(
+      "%2i: interface :%s:, name :%s:, opened :%s:  %s"
+      % (i, interf, name, opened, in_out)
+    )
 
 def midi_input_main(device_id=None):
-    pg.init()
-    pg.fastevent.init()
-    event_get = pg.fastevent.get
-    event_post = pg.fastevent.post
+  global isGuessed
+  pg.init()
+  pg.fastevent.init()
+  event_get = pg.fastevent.get
+  event_post = pg.fastevent.post
 
-    pygame.midi.init()
+  pygame.midi.init()
 
-    # _print_midi_device_info()
+  # _print_midi_device_info()
 
-    if device_id is None:
-        input_id = pygame.midi.get_default_input_id()
-    else:
-        input_id = device_id
+  if device_id is None:
+    input_id = pygame.midi.get_default_input_id()
+  else:
+    input_id = device_id
 
-    # print("using input_id :%s:" % input_id)
-    i = pygame.midi.Input(input_id)
+  # print("using input_id :%s:" % input_id)
+  i = pygame.midi.Input(input_id)
 
-    pg.display.set_mode((1, 1))
+  pg.display.set_mode((1, 1))
 
-    going = True
-    while going:
-        events = event_get()
-        for e in events:
-            if e.type in [pg.QUIT]:
-                going = False
-            if e.type in [pg.KEYDOWN]:
-                going = False
-            if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
-                resetRange()
-                going = False
-            elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
-                doRandomNote()
-            elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
-                print(e.data1)
-                runVibrations(e.data1 - 60)
+  going = True
+  while going:
+    events = event_get()
+    for e in events:
+      if e.type in [pg.QUIT]:
+        going = False
+      if e.type in [pg.KEYDOWN]:
+        going = False
+      if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
+        resetRange()
+        going = False
+      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
+        if isGuessed:
+          doRandomNote()
+          isGuessed = False
+        else:
+          runVibrations(correctNote - 60)
+      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
+        if isTesting:
+          if correctNote != 0:
+            if e.data1 == correctNote:
+              pygame.mixer.music.load("jonathan/correct.wav")
+              isGuessed = True
+            else:
+              pygame.mixer.music.load("jonathan/wrong.mp3")
+            pygame.mixer.music.play()
+        else:
+          runVibrations(e.data1 - 60)
 
-        if i.poll():
-            midi_events = i.read(10)
-            # convert them into pygame events.
-            midi_evs = pygame.midi.midis2events(midi_events, i.device_id)
+    if i.poll():
+      midi_events = i.read(10)
+      # convert them into pygame events.
+      midi_evs = pygame.midi.midis2events(midi_events, i.device_id)
 
-            for m_e in midi_evs:
-                event_post(m_e)
-    del i
-    pygame.midi.quit()
+      for m_e in midi_evs:
+        event_post(m_e)
+  del i
+  pygame.midi.quit()
 
 
 ##############
@@ -209,9 +227,8 @@ def getRangeInfo(POV): # point of vibration
   elif POV > 2 and POV < 3:
     return [[2, (3-POV)*maxRangeVibration], [3, (POV-2)*maxRangeVibration]]
   
-if mode == 0:
-  with Listener(
-      on_press=on_press) as listener:
-    listener.join()
-else:
+if isPiano:
   midi_input_main(1)
+else:
+  with Listener(on_press=on_press) as listener:
+    listener.join()
