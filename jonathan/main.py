@@ -19,14 +19,15 @@ sleep(3) # Needs a few seconds to boot up or something
 print("Begin!")
 
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 3 
+mode = 2 
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is doing a randomly generated melody
 # 3 is doing prerecorded melody
 
-# For melody, first number is note (low C = 0), second number is duration (1, 2, or 4)
-melody = [[0,2], [2, 2], [4,2], [5,2], [4,2], [2,2], [0,4]]
+# For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
+melody = [[0,1], [2, 1], [4,1], [5,1], [4,1], [2,1], [0,2]]
+randomMelodyNote = [12,1]
 melodyIndex = 0
 beginMelody = False
 lastNoteTime = 0
@@ -91,7 +92,7 @@ def doRandomNote():
 # Main Logic #
 ##############
 
-def runVibrations(keyNum, durationNum = 1):
+def runVibrations(keyNum, durationNum = 0):
   global pointOfVibration
   newPOV = keyNum/8 if isOldRange else (0 if keyNum < 12 else (3 if keyNum > 12 else 1.5))
   moveRange(pointOfVibration, newPOV)
@@ -191,6 +192,7 @@ def midi_input_main(device_id=None):
   global correctNote
   global lastNoteTime
   global melodyIndex
+  global randomMelodyNote
   pg.init()
   pg.fastevent.init()
   event_get = pg.fastevent.get
@@ -213,15 +215,21 @@ def midi_input_main(device_id=None):
   going = True
   while going:
 
-    if (beginMelody and isGuessed and time.time_ns() - lastNoteTime >= melody[melodyIndex][1]*500000000):
-      if lastNoteTime > 0: # If it's not the first note
-        melodyIndex = melodyIndex + 1
-        if melodyIndex == len(melody):
-          resetRange()
-          going = False
-          break
-      correctNote = 60 + melody[melodyIndex][0]
-      runVibrations(correctNote - 60)
+    noteDuration = (melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1]) * 500000000
+    if mode >= 2 and beginMelody and isGuessed and time.time_ns() - noteDuration:
+      if mode == 3:
+        if lastNoteTime > 0: # If it's not the first note
+          melodyIndex = melodyIndex + 1
+          if melodyIndex == len(melody):
+            resetRange()
+            going = False
+            break
+        correctNote = 60 + melody[melodyIndex][0]
+      else:
+        newNote = randomMelodyNote[0] + random.randint(-4, 4)
+        randomMelodyNote = [max(min(newNote,24),0), random.choice([0,1,2])]
+        correctNote = 60 + randomMelodyNote[0]
+      runVibrations(correctNote - 60, melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1])
       lastNoteTime = time.time_ns()
       isGuessed = False
 
@@ -239,7 +247,7 @@ def midi_input_main(device_id=None):
           if not beginMelody:
             beginMelody = True
           if not isGuessed:
-            runVibrations(correctNote - 60)
+            runVibrations(correctNote - 60, melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1])
         elif mode == 1:
           if isGuessed:
             doRandomNote()
