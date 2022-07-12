@@ -3,12 +3,14 @@ import time
 from pynput.keyboard import Key, Listener
 import random
 import math
+import numpy
 
 import os
 import pygame as pg
 import pygame.midi
 import pygame.mixer
-pygame.mixer.init()
+pygame.mixer.init(44100,-16,2,512)
+sound = None
 
 import sys
 sys.path.append("..")
@@ -19,16 +21,30 @@ sleep(3) # Needs a few seconds to boot up or something
 print("Begin!")
 
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 2 
+mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
-# 2 is doing a randomly generated melody
-# 3 is doing prerecorded melody
+# 2 is testing with a randomly generated melody
+# 3 is testing with a prerecorded melody
+# 4 is playback of prerecorded melody without haptics
+# 5 is playback of prerecorded melody with haptics
+
+playbackCommand = 0
+# 0 is no command
+# 1 is skip to beginning
+# 2 is skip to previous bar
+# 3 is skip to previous note (to repeat note)
+# 4 is to play
+# 5 is to pause
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
-melody = [[0,1], [2, 1], [4,1], [5,1], [4,1], [2,1], [0,2]]
+melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
+beatLegend = [1,2,4]
 randomMelodyNote = [12,1]
-melodyIndex = 0
+totalNotes = len(melody)
+totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
+melodyIndex = 0 # which note of the melody we're on
+beatIndex = 0 # which beat of the melody we're on
 beginMelody = False
 lastNoteTime = 0
 
@@ -91,6 +107,17 @@ def doRandomNote():
 ##############
 # Main Logic #
 ##############
+
+def playAudio(midiNote):
+  global sound
+  if sound:
+    sound.stop()
+  sampleRate = 44100
+  freq = 2**((midiNote-69)/12)*440
+  arr = numpy.array([4096 * numpy.sin(2.0 * numpy.pi * freq * x / sampleRate) for x in range(0, sampleRate)]).astype(numpy.int16)
+  arr2 = numpy.c_[arr,arr]
+  sound = pygame.sndarray.make_sound(arr2)
+  sound.play()
 
 def runVibrations(keyNum, durationNum = 0):
   global pointOfVibration
@@ -193,6 +220,8 @@ def midi_input_main(device_id=None):
   global lastNoteTime
   global melodyIndex
   global randomMelodyNote
+  global playbackCommand
+  global beatIndex
   pg.init()
   pg.fastevent.init()
   event_get = pg.fastevent.get
@@ -215,24 +244,53 @@ def midi_input_main(device_id=None):
   going = True
   while going:
 
-    noteDuration = (melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1]) * 500000000
-    if mode >= 2 and beginMelody and isGuessed and time.time_ns() - noteDuration:
-      if mode == 3:
+    # This block of code continuously loops
+    if playbackCommand == 1: # Skip to beginning
+      melodyIndex = 0
+      lastNoteTime = 0
+    elif playbackCommand == 2: # Skip to previous bar
+      while True:
+        beatIndex = beatIndex - beatLegend[melody[melodyIndex][1]] \
+          if beatIndex >= beatLegend[melody[melodyIndex][1]] \
+          else totalBeats - beatLegend[melody[melodyIndex][1]]
+        melodyIndex = melodyIndex - 1 if melodyIndex != 0 else totalNotes - 1
+        if (beatIndex % 4 == 0):
+          lastNoteTime = 0
+          break
+    elif playbackCommand == 3: # Skip to previous note
+      melodyIndex = melodyIndex - 1 if melodyIndex != 0 else totalNotes - 1
+    elif playbackCommand == 4: # Play
+      beginMelody = True
+    elif playbackCommand == 5: # Pause
+      beginMelody = False
+    playbackCommand = 0
+
+    noteDuration = (melody[melodyIndex][1] if mode != 2 else randomMelodyNote[1]) * 500000000
+    if beginMelody and (((mode == 2 or mode == 3) and isGuessed) or (mode == 4 or mode == 5)) and (time.time_ns() - lastNoteTime >= noteDuration):
+      if mode != 2:
         if lastNoteTime > 0: # If it's not the first note
           melodyIndex = melodyIndex + 1
           if melodyIndex == len(melody):
             resetRange()
-            going = False
-            break
+            beginMelody = False
+            melodyIndex = 0
+            beatIndex = 0
+            lastNoteTime = 0
+            continue
+          beatIndex = beatIndex + beatLegend[melody[melodyIndex][1]]
         correctNote = 60 + melody[melodyIndex][0]
       else:
         newNote = randomMelodyNote[0] + random.randint(-4, 4)
         randomMelodyNote = [max(min(newNote,24),0), random.choice([0,1,2])]
         correctNote = 60 + randomMelodyNote[0]
-      runVibrations(correctNote - 60, melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1])
+      if mode == 4 or mode == 5:
+        playAudio(correctNote)
       lastNoteTime = time.time_ns()
+      if mode != 4:
+        runVibrations(correctNote - 60, melody[melodyIndex][1] if mode != 2 else randomMelodyNote[1])
       isGuessed = False
 
+    # Code for when a piano key is pressed
     events = event_get()
     for e in events:
       if e.type in [pg.QUIT]:
@@ -243,12 +301,12 @@ def midi_input_main(device_id=None):
         resetRange()
         going = False
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
-        if mode == 2 or mode == 3: # Melody
+        if mode == 2 or mode == 3 or mode == 4 or mode == 5: # Melody
           if not beginMelody:
             beginMelody = True
-          if not isGuessed:
+          if not isGuessed and (mode == 2 or mode == 3):
             runVibrations(correctNote - 60, melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1])
-        elif mode == 1:
+        elif mode == 1: # No melody, just random notes
           if isGuessed:
             doRandomNote()
             isGuessed = False
@@ -272,6 +330,9 @@ def midi_input_main(device_id=None):
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
               pygame.mixer.music.play()
+      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 in [36, 38, 40, 41, 43]: # C2 to G2
+        if mode == 4 or mode == 5:
+            playbackCommand = [36, 38, 40, 41, 43].index(e.data1) + 1
     if i.poll():
       midi_events = i.read(10)
       # convert them into pygame events.
