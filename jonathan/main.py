@@ -32,7 +32,6 @@ mode = 5
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
 melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
-playbackNoteMultiplier = 1000000000
 beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
@@ -41,20 +40,6 @@ isOldRange = True # Whether the range goes to each point or just the 3 points (l
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 accidentalPins = [0,2,4,10,12,14]
 rangePins = [0,1,2,3]
-
-rangeUpdateTime = 10 # range vibration updates every 10 ms
-rangeTime = 100 # time to move to next note
-sweepTime = 75 # milliseconds
-accidentalTime = 200 # milliseconds
-durations = [75, 575, 1075] # Quarter note, half note, whole note
-
-maxRangeIntensity = 40
-sweepIntensity = [80, 100] # Cardinal notes, diagonal notes
-
-keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
-sweepDirections = [0,0,1,2,2,3,3,4,4,5,6,6]
-accidentals = [-1,1,-1,0,-1,-1,1,-1,1,-1,0,-1] # -1 none, 0 flat, 1 sharp
-noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 numSweepPhases = 4
 directions = [
@@ -66,6 +51,21 @@ directions = [
   [[13],[10],[7],[4]], # up-right
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
+
+secondsPerBar = 1
+rangeUpdateTime = 10 # range vibration updates every 10 ms
+rangeTime = 100 # time to move to next note
+sweepTime = 75 # milliseconds
+accidentalTime = 200 # milliseconds
+durations =  [i * secondsPerBar - sweepTime*(numSweepPhases-1) for i in [250, 500, 1000]] # Quarter note, half note, whole note
+
+maxRangeIntensity = 40
+sweepIntensity = [80, 100] # Cardinal notes, diagonal notes
+
+keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
+sweepDirections = [0,0,1,2,2,3,3,4,4,5,6,6]
+accidentals = [-1,1,-1,0,-1,-1,1,-1,1,-1,0,-1] # -1 none, 0 flat, 1 sharp
+noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 
 ####################
@@ -158,7 +158,7 @@ def sweep():
     GVARS['sweepPhase'] = GVARS['sweepPhase'] + 1
 
 def vibrateAccidental():
-  if (time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases + rangeTime) * 1000000):
+  if (time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases) * 1000000):
     if (GVARS['isSharp'] == 0 or GVARS['isSharp'] == 1):
       for i in range(len(accidentalPins)):
         player.submit_dot("accidental" + str(i), "Right" if GVARS['isSharp'] else "Left", \
@@ -273,7 +273,7 @@ def midi_input_main(device_id=None):
       GVARS['beginMelody'] = False
     GVARS['playbackCommand'] = 0
 
-    noteDuration = (melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]) * playbackNoteMultiplier
+    noteDuration = beatLegend[melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]] * 250000000 * secondsPerBar
     if GVARS['beginMelody'] and (((mode == 2 or mode == 3) and GVARS['isGuessed']) or (mode == 4 or mode == 5)) \
       and (time.time_ns() - GVARS['lastNoteTime'] >= noteDuration):
       if mode != 2:
