@@ -31,7 +31,8 @@ mode = 5
 # 5 is playback of prerecorded melody with haptics
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
-melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
+# melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
+melody =[[9,1], [11,0], [8,0], [8,0], [5,1], [4,0], [6,2], [6,1], [8,0], [6,0], [6,0], [6,1], [6,0], [6,1], [9,1], [5,1], [5,0], [1,0], [5,0], [9,0]]
 beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
@@ -52,7 +53,7 @@ directions = [
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
 
-secondsPerBar = 1
+secondsPerBar = 5
 rangeUpdateTime = 10 # range vibration updates every 10 ms
 rangeTime = 100 # time to move to next note
 sweepTime = 75 # milliseconds
@@ -130,6 +131,7 @@ def startVibrations(keyNum, durationNum = 0):
   GVARS['keyNum'] = keyNum
   GVARS['moveRangePhase'] = 0
   GVARS['sweepPhase'] = 0
+  GVARS['accidentalPhase'] = 0
   GVARS['vibrationStartTime'] = time.time_ns()
 
 def updateVibrations():
@@ -158,7 +160,8 @@ def sweep():
     GVARS['sweepPhase'] = GVARS['sweepPhase'] + 1
 
 def vibrateAccidental():
-  if (time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases) * 1000000):
+  if (GVARS['accidentalPhase'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases) * 1000000):
+    GVARS['accidentalPhase'] = 1
     if (GVARS['isSharp'] == 0 or GVARS['isSharp'] == 1):
       for i in range(len(accidentalPins)):
         player.submit_dot("accidental" + str(i), "Right" if GVARS['isSharp'] else "Left", \
@@ -169,6 +172,9 @@ def resetVibrations():
   player.submit_dot("range1", "VestFront", [{"index": 91, "intensity": 0}], 1)
   for i in range(16):
     player.submit_dot(i, "VestBack", [{"index": pins[i], "intensity": 0}], 1)
+  for i in range(len(accidentalPins)):
+    player.submit_dot("accidental" + str(i), "Left", [{"index": accidentalPins[i], "intensity": 0}], 1)
+    player.submit_dot("accidental" + str(i), "Right", [{"index": accidentalPins[i], "intensity": 0}], 1)
 
 def getRangeInfo(POV): # point of vibration
   justOneActuator = [0,1,2,3]
