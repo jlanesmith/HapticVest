@@ -9,16 +9,17 @@ import os
 import pygame as pg
 import pygame.midi
 import pygame.mixer
-pygame.mixer.init(44100,-16,2,512)
-sound = None
 
 import sys
 sys.path.append("..")
 from HapticVest.bhaptics import haptic_player
 
+
+#############
+# Constants #
+#############
+
 player = haptic_player.HapticPlayer()
-sleep(3) # Needs a few seconds to boot up or something
-print("Begin!")
 
 isPiano = True # Whether using piano keyboard or computer keyboard
 mode = 5
@@ -29,31 +30,14 @@ mode = 5
 # 4 is playback of prerecorded melody without haptics
 # 5 is playback of prerecorded melody with haptics
 
-playbackCommand = 0
-# 0 is no command
-# 1 is skip to beginning
-# 2 is skip to previous bar
-# 3 is skip to previous note (to repeat note)
-# 4 is to play
-# 5 is to pause
-
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
 melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
+playbackNoteMultiplier = 1000000000
 beatLegend = [1,2,4]
-randomMelodyNote = [12,1]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
-melodyIndex = 0 # which note of the melody we're on
-beatIndex = 0 # which beat of the melody we're on
-beginMelody = False
-lastNoteTime = 0
-
 isOldRange = True # Whether the range goes to each point or just the 3 points (left, centre, right)
 
-correctNote = 0 # MIDI number of correct note, if mode != 0
-isGuessed = True # Whether the correct note has been guessed yet
-
-# Setup
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 accidentalPins = [0,2,4,10,12,14]
 rangePins = [0,1,2,3]
@@ -72,16 +56,7 @@ sweepDirections = [0,0,1,2,2,3,3,4,4,5,6,6]
 accidentals = [-1,1,-1,0,-1,-1,1,-1,1,-1,0,-1] # -1 none, 0 flat, 1 sharp
 noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
-oldDirections = [
-  [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]], # down
-  [[4],[3,8],[2,7,12],[1,6,11,16],[5,10,15],[9,14],[13]], # down-left
-  [[4,8,12,16],[3,7,11,15],[2,6,10,14],[1,5,9,13]], # left
-  [[16],[12,15],[8,11,14],[4,7,10,13],[3,6,9],[2,5],[1]], # up-left
-  [[13,14,15,16],[9,10,11,12],[5,6,7,8],[1,2,3,4]], # up
-  [[13],[9,14],[5,10,15],[1,6,11,16],[2,7,12],[3,8],[4]], # up-right
-  [[1,5,9,13],[2,6,10,14],[3,7,11,15],[4,8,12,16]] # right
-]
-
+numSweepPhases = 4
 directions = [
   [[2,3],[6,7],[10,11],[14,15]], # down
   [[4],[7],[10],[13]], # down-left
@@ -92,70 +67,108 @@ directions = [
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
 
-keyNum = 0 # Between 0 and 24
-pointOfVibration = 1.5 # 0 to 3
 
-def doRandomNote():
-  global correctNote
-  keyNum = random.randint(0,24)
-  correctNote = 60 + keyNum
-  runVibrations(keyNum)
-  sleep(1)
-  print(noteNames[keyNum%12], (math.floor(keyNum/12)+1))
+####################
+# Global Variables #
+####################
+
+GVARS = {
+  'sound': None,
+
+  'randomMelodyNote': [12,1],
+  'playbackCommand': 0,
+    # 0 is no command
+    # 1 is skip to beginning
+    # 2 is skip to previous bar
+    # 3 is skip to previous note (to repeat note)
+    # 4 is to play
+    # 5 is to pause
+
+  'melodyIndex': 0, # which note of the melody we're on
+  'beatIndex': 0, # which beat of the melody we're on
+  'beginMelody': False,
+  'lastNoteTime': 0, # time since last melody note was played
+  'isGuessed': True, # Whether the correct note has been guessed yet
+
+  'keyNum': None, # Number of note to be vibrated, between 0 and 24
+  'durationNum': 0,
+  'pointOfVibration': 1.5, # 0 to 3
+  'oldPOV': None,
+  'newPOV': None,
+  'direction': None,
+  'isSharp': False,
+  'vibrationStartTime':  0,
+  'moveRangePhase': 0, # Phases within moving through the range
+  'sweepPhase': 0, # Phases within sweeping
+}
 
 
 ##############
 # Main Logic #
 ##############
 
+def doRandomNote():
+  startVibrations(random.randint(0,24))
+  print(noteNames[GVARS['keyNum']%12], (math.floor(GVARS['keyNum']/12)+1))
+  
 def playAudio(midiNote):
-  global sound
-  if sound:
-    sound.stop()
+  if GVARS['sound']:
+    GVARS['sound'].stop()
   sampleRate = 44100
   freq = 2**((midiNote-69)/12)*440
   arr = numpy.array([4096 * numpy.sin(2.0 * numpy.pi * freq * x / sampleRate) for x in range(0, sampleRate)]).astype(numpy.int16)
   arr2 = numpy.c_[arr,arr]
-  sound = pygame.sndarray.make_sound(arr2)
-  sound.play()
+  GVARS['sound'] = pygame.sndarray.make_sound(arr2)
+  GVARS['sound'].play()
 
-def runVibrations(keyNum, durationNum = 0):
-  global pointOfVibration
-  newPOV = keyNum/8 if isOldRange else (0 if keyNum < 12 else (3 if keyNum > 12 else 1.5))
-  moveRange(pointOfVibration, newPOV)
-  sweep(sweepDirections[keyNum%12], durationNum)
-  vibrateAccidental(accidentals[keyNum%12])
-  sleep((durations[durationNum]-sweepTime)/1000)
+def startVibrations(keyNum, durationNum = 0):
+  GVARS['durationNum'] = durationNum
+  GVARS['newPOV'] = keyNum/8 if isOldRange else (0 if keyNum < 12 else (3 if keyNum > 12 else 1.5))
+  GVARS['oldPOV'] = GVARS['pointOfVibration']
+  GVARS['direction'] = sweepDirections[keyNum%12]
+  GVARS['isSharp'] = accidentals[keyNum%12]
+  GVARS['keyNum'] = keyNum
+  GVARS['moveRangePhase'] = 0
+  GVARS['sweepPhase'] = 0
+  GVARS['vibrationStartTime'] = time.time_ns()
 
-def moveRange(oldPOV, newPOV):
-  global pointOfVibration
-  for i in range(int(rangeTime/rangeUpdateTime)): # Time between each update
-    pointOfVibration = oldPOV + (newPOV - oldPOV)*((1+i)/(rangeTime/rangeUpdateTime))
-    for index, rangeInfo in enumerate(getRangeInfo(pointOfVibration)):
+def updateVibrations():
+  if GVARS['oldPOV'] != None:
+    moveRange()
+    sweep()
+    vibrateAccidental()
+
+def moveRange():
+  if (GVARS['moveRangePhase'] < int(rangeTime/rangeUpdateTime) and \
+  time.time_ns() - GVARS['vibrationStartTime'] >= rangeUpdateTime*GVARS['moveRangePhase'] * 1000000):
+    GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
+    GVARS['pointOfVibration'] = GVARS['oldPOV'] + (GVARS['newPOV'] - GVARS['oldPOV'])*(GVARS['moveRangePhase']/(rangeTime/rangeUpdateTime))
+    for index, rangeInfo in enumerate(getRangeInfo(GVARS['pointOfVibration'])):
       player.submit_dot("range" + str(index), "VestFront", [{"index": rangePins[int(rangeInfo[0])], "intensity": int(rangeInfo[1])}], 10000)
-    sleep(rangeUpdateTime/1000)
 
-def resetRange():
-    player.submit_dot("range0", "VestFront", [{"index": 90, "intensity": 0}], 1)
-    player.submit_dot("range1", "VestFront", [{"index": 91, "intensity": 0}], 1)
-
-def sweep(direction, durationNum):
+def sweep():
   # direction: see 3d array
   # duration: time to hold the last vibration
-  # phase: 4 phases for cardinal directions, 7 for diagonal directions
-  numPhases = len(directions[direction])
-  for phase in range(numPhases):
-    phaseTime = int(durations[durationNum] if phase == numPhases-1 else sweepTime)
-    for index, i in enumerate(directions[direction][phase]):
-      isLastPhase = phase == numPhases-1
-      player.submit_dot(i-1, "VestBack", [{"index": pins[i-1], "intensity": sweepIntensity[direction%2]}], phaseTime)
-    sleep(sweepTime/1000)
+  nextUpdateTime = sweepTime*GVARS['sweepPhase'] if GVARS['sweepPhase'] < 4 else \
+    sweepTime*(numSweepPhases-1) + durations[GVARS['durationNum']]
+  if (GVARS['sweepPhase'] < numSweepPhases and time.time_ns() - GVARS['vibrationStartTime'] >= nextUpdateTime * 1000000):
+    phaseTime = int(durations[GVARS['durationNum']] if GVARS['sweepPhase'] == numSweepPhases-1 else sweepTime)
+    for index, i in enumerate(directions[GVARS['direction']][GVARS['sweepPhase']]):
+      player.submit_dot(i-1, "VestBack", [{"index": pins[i-1], "intensity": sweepIntensity[GVARS['direction']%2]}], phaseTime)
+    GVARS['sweepPhase'] = GVARS['sweepPhase'] + 1
 
-def vibrateAccidental(isSharp):
-  if (isSharp == 0 or isSharp == 1):
-    for i in range(len(accidentalPins)):
-      player.submit_dot("accidental" + str(i), "Right" if isSharp else "Left", [{"index": accidentalPins[i], "intensity": 100}], accidentalTime)
-    sleep(accidentalTime/1000/2) # only wait half of the accidentalTime before moving on to next note
+def vibrateAccidental():
+  if (time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases + rangeTime) * 1000000):
+    if (GVARS['isSharp'] == 0 or GVARS['isSharp'] == 1):
+      for i in range(len(accidentalPins)):
+        player.submit_dot("accidental" + str(i), "Right" if GVARS['isSharp'] else "Left", \
+          [{"index": accidentalPins[i], "intensity": 100}], accidentalTime)
+
+def resetVibrations():
+  player.submit_dot("range0", "VestFront", [{"index": 90, "intensity": 0}], 1)
+  player.submit_dot("range1", "VestFront", [{"index": 91, "intensity": 0}], 1)
+  for i in range(16):
+    player.submit_dot(i, "VestBack", [{"index": pins[i], "intensity": 0}], 1)
 
 def getRangeInfo(POV): # point of vibration
   justOneActuator = [0,1,2,3]
@@ -178,13 +191,12 @@ def on_press(key):
       key))
   if key == Key.esc:
     # Stop listener
-    resetRange()
+    resetVibrations()
     return False
   if key == Key.space:
     doRandomNote()
   if hasattr(key, 'char') and key.char in keys:
-    keyNum = keys.index(key.char)
-    runVibrations(keyNum)
+    startVibrations(keys.index(key.char))
 
 
 #######################
@@ -214,14 +226,6 @@ def _print_midi_device_info():
     )
 
 def midi_input_main(device_id=None):
-  global isGuessed
-  global beginMelody
-  global correctNote
-  global lastNoteTime
-  global melodyIndex
-  global randomMelodyNote
-  global playbackCommand
-  global beatIndex
   pg.init()
   pg.fastevent.init()
   event_get = pg.fastevent.get
@@ -245,50 +249,55 @@ def midi_input_main(device_id=None):
   while going:
 
     # This block of code continuously loops
-    if playbackCommand == 1: # Skip to beginning
-      melodyIndex = 0
-      lastNoteTime = 0
-    elif playbackCommand == 2: # Skip to previous bar
+    updateVibrations()
+    if GVARS['playbackCommand'] == 1: # Skip to beginning
+      resetVibrations()
+      GVARS['melodyIndex'] = 0
+      GVARS['lastNoteTime'] = 0
+    elif GVARS['playbackCommand'] == 2: # Skip to previous bar
+      resetVibrations()
       while True:
-        beatIndex = beatIndex - beatLegend[melody[melodyIndex][1]] \
-          if beatIndex >= beatLegend[melody[melodyIndex][1]] \
-          else totalBeats - beatLegend[melody[melodyIndex][1]]
-        melodyIndex = melodyIndex - 1 if melodyIndex != 0 else totalNotes - 1
-        if (beatIndex % 4 == 0):
-          lastNoteTime = 0
+        GVARS['beatIndex'] = GVARS['beatIndex'] - beatLegend[melody[GVARS['melodyIndex']][1]] \
+          if GVARS['beatIndex'] >= beatLegend[melody[GVARS['melodyIndex']][1]] \
+          else totalBeats - beatLegend[melody[GVARS['melodyIndex']][1]]
+        GVARS['melodyIndex'] = GVARS['melodyIndex'] - 1 if GVARS['melodyIndex'] != 0 else totalNotes - 1
+        if (GVARS['beatIndex'] % 4 == 0):
+          GVARS['lastNoteTime'] = 0
           break
-    elif playbackCommand == 3: # Skip to previous note
-      melodyIndex = melodyIndex - 1 if melodyIndex != 0 else totalNotes - 1
-    elif playbackCommand == 4: # Play
-      beginMelody = True
-    elif playbackCommand == 5: # Pause
-      beginMelody = False
-    playbackCommand = 0
+    elif GVARS['playbackCommand'] == 3: # Skip to previous note
+      GVARS['melodyIndex'] = GVARS['melodyIndex'] - 1 if GVARS['melodyIndex'] != 0 else totalNotes - 1
+    elif GVARS['playbackCommand'] == 4: # Play
+      GVARS['beginMelody'] = True
+    elif GVARS['playbackCommand'] == 5: # Pause
+      resetVibrations()
+      GVARS['beginMelody'] = False
+    GVARS['playbackCommand'] = 0
 
-    noteDuration = (melody[melodyIndex][1] if mode != 2 else randomMelodyNote[1]) * 500000000
-    if beginMelody and (((mode == 2 or mode == 3) and isGuessed) or (mode == 4 or mode == 5)) and (time.time_ns() - lastNoteTime >= noteDuration):
+    noteDuration = (melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]) * playbackNoteMultiplier
+    if GVARS['beginMelody'] and (((mode == 2 or mode == 3) and GVARS['isGuessed']) or (mode == 4 or mode == 5)) \
+      and (time.time_ns() - GVARS['lastNoteTime'] >= noteDuration):
       if mode != 2:
-        if lastNoteTime > 0: # If it's not the first note
-          melodyIndex = melodyIndex + 1
-          if melodyIndex == len(melody):
-            resetRange()
-            beginMelody = False
-            melodyIndex = 0
-            beatIndex = 0
-            lastNoteTime = 0
+        if GVARS['lastNoteTime'] > 0: # If it's not the first note
+          GVARS['melodyIndex'] = GVARS['melodyIndex'] + 1
+          if GVARS['melodyIndex'] == len(melody):
+            resetVibrations()
+            GVARS['beginMelody'] = False
+            GVARS['melodyIndex'] = 0
+            GVARS['beatIndex'] = 0
+            GVARS['lastNoteTime'] = 0
             continue
-          beatIndex = beatIndex + beatLegend[melody[melodyIndex][1]]
-        correctNote = 60 + melody[melodyIndex][0]
+          GVARS['beatIndex'] = GVARS['beatIndex'] + beatLegend[melody[GVARS['melodyIndex']][1]]
+        GVARS['keyNum'] = melody[GVARS['melodyIndex']][0]
       else:
-        newNote = randomMelodyNote[0] + random.randint(-4, 4)
-        randomMelodyNote = [max(min(newNote,24),0), random.choice([0,1,2])]
-        correctNote = 60 + randomMelodyNote[0]
+        newNote = GVARS['randomMelodyNote'][0] + random.randint(-4, 4)
+        GVARS['randomMelodyNote'] = [max(min(newNote,24),0), random.choice([0,1,2])]
+        GVARS['keyNum'] = GVARS['randomMelodyNote'][0]
       if mode == 4 or mode == 5:
-        playAudio(correctNote)
-      lastNoteTime = time.time_ns()
+        playAudio(GVARS['keyNum'] + 60)
+      GVARS['lastNoteTime'] = time.time_ns()
       if mode != 4:
-        runVibrations(correctNote - 60, melody[melodyIndex][1] if mode != 2 else randomMelodyNote[1])
-      isGuessed = False
+        startVibrations(GVARS['keyNum'], melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1])
+      GVARS['isGuessed'] = False
 
     # Code for when a piano key is pressed
     events = event_get()
@@ -298,41 +307,41 @@ def midi_input_main(device_id=None):
       if e.type in [pg.KEYDOWN]:
         going = False
       if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
-        resetRange()
+        resetVibrations()
         going = False
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
         if mode == 2 or mode == 3 or mode == 4 or mode == 5: # Melody
-          if not beginMelody:
-            beginMelody = True
-          if not isGuessed and (mode == 2 or mode == 3):
-            runVibrations(correctNote - 60, melody[melodyIndex][1] if mode == 3 else randomMelodyNote[1])
+          if not GVARS['beginMelody']:
+            GVARS['beginMelody'] = True
+          if not GVARS['isGuessed'] and (mode == 2 or mode == 3):
+            startVibrations(GVARS['keyNum'], melody[GVARS['melodyIndex']][1] if mode == 3 else GVARS['randomMelodyNote'][1])
         elif mode == 1: # No melody, just random notes
-          if isGuessed:
+          if GVARS['isGuessed']:
             doRandomNote()
-            isGuessed = False
+            GVARS['isGuessed'] = False
           else:
-            runVibrations(correctNote - 60)
+            startVibrations(GVARS['keyNum'])
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
         if mode == 0:
-          runVibrations(e.data1 - 60)
+          startVibrations(e.data1 - 60)
         elif mode == 1:
-          if correctNote != 0:
-            if e.data1 == correctNote:
+          if GVARS['keyNum'] != None:
+            if e.data1 == GVARS['keyNum']:
               pygame.mixer.music.load("jonathan/correct.wav")
-              isGuessed = True
+              GVARS['isGuessed'] = True
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
             pygame.mixer.music.play()
         elif mode == 2 or mode == 3:
-          if correctNote != 0:
-            if e.data1 == correctNote:
-              isGuessed = True
+          if GVARS['keyNum'] != None:
+            if e.data1 == GVARS['keyNum']:
+              GVARS['isGuessed'] = True
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
               pygame.mixer.music.play()
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 in [36, 38, 40, 41, 43]: # C2 to G2
         if mode == 4 or mode == 5:
-            playbackCommand = [36, 38, 40, 41, 43].index(e.data1) + 1
+            GVARS['playbackCommand'] = [36, 38, 40, 41, 43].index(e.data1) + 1
     if i.poll():
       midi_events = i.read(10)
       # convert them into pygame events.
@@ -344,6 +353,13 @@ def midi_input_main(device_id=None):
   pygame.midi.quit()
 
 
+##########
+# Start #
+##########
+
+pygame.mixer.init(44100,-16,2,512)
+sleep(3) # Needs a few seconds to boot up or something
+print("Begin!")
 if isPiano:
   midi_input_main(1)
 else:
