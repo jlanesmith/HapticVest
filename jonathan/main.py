@@ -31,16 +31,16 @@ mode = 5
 # 5 is playback of prerecorded melody with haptics
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
-# melody = [[0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [4,2], [0,1], [2, 1], [0,2]]
-melody =[[9,1], [11,0], [8,0], [8,0], [5,1], [4,0], [6,2], [6,1], [8,0], [6,0], [6,0], [6,1], [6,0], [6,1], [9,1], [5,1], [5,0], [1,0], [5,1], [9,1]]
+melody = [[16,0], [11,1], [9,0], [14,1], [12,1], [16,0], [19,1], [14,0], [12,0], [12,0], [11,1], [12,1], [14,0], [16,0], [14,1], [11,0], [9,0]]
 beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 isOldRange = True # Whether the range goes to each point or just the 3 points (left, centre, right)
 
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-accidentalPins = [0,2,4,10,12,14]
-rangePins = [0,1,2,3]
+backPointPins = [[0], [1,2], [3], [9,10], [16], [17,18], [19]]
+accidentalPins = [0,2,4,10,12,14] 
+rangePins = [0,1,2,3] # [12,13,14,15] # 
 
 numSweepPhases = 4
 directions = [
@@ -53,15 +53,16 @@ directions = [
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
 
-secondsPerBar = 2
+secondsPerBar = 6
 rangeUpdateTime = 10 # range vibration updates every 10 ms
 rangeTime = 100 # time to move to next note
 sweepTime = 75 # milliseconds
-accidentalTime = 200 # milliseconds
+accidentalTime = 400 # milliseconds
 durations =  [i * secondsPerBar - sweepTime*(numSweepPhases-1) for i in [250, 500, 1000]] # Quarter note, half note, whole note
 
 maxRangeIntensity = 40
 sweepIntensity = [80, 100] # Cardinal notes, diagonal notes
+backPointIntensity = [70, 100] # Center notes, outside notes
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
@@ -98,7 +99,7 @@ GVARS = {
   'pointOfVibration': 1.5, # 0 to 3
   'oldPOV': None,
   'newPOV': None,
-  'direction': None,
+  'direction': None, # 0-6, refers to which "white note" the note is (E.g. for C#, it's C)
   'isSharp': False,
   'vibrationStartTime':  0,
   'moveRangePhase': 0, # Phases within moving through the range
@@ -139,8 +140,9 @@ def startVibrations(keyNum, durationNum = 0):
 def updateVibrations():
   if GVARS['oldPOV'] != None:
     moveRange()
-    sweep()
-    vibrateAccidental()
+    # sweep()
+    vibrateBackPoint()
+    # vibrateAccidental()
 
 def moveRange():
   if (GVARS['moveRangePhase'] < int(rangeTime/rangeUpdateTime) and \
@@ -161,8 +163,15 @@ def sweep():
       player.submit_dot(i-1, "VestBack", [{"index": pins[i-1], "intensity": sweepIntensity[GVARS['direction']%2]}], phaseTime)
     GVARS['sweepPhase'] = GVARS['sweepPhase'] + 1
 
+# Instead of sweep()
+def vibrateBackPoint():
+  if (GVARS['sweepPhase'] == 0):
+    for i in backPointPins[GVARS['direction']]:
+      player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['direction']]) > 1]}], durations[GVARS['durationNum']])
+    GVARS['sweepPhase'] = 1
+
 def vibrateAccidental():
-  if (GVARS['accidentalPhase'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= (sweepTime*numSweepPhases) * 1000000):
+  if (GVARS['accidentalPhase'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= sweepTime*1 * 1000000):
     GVARS['accidentalPhase'] = 1
     if (GVARS['isSharp'] == 0 or GVARS['isSharp'] == 1):
       for i in range(len(accidentalPins)):
