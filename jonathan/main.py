@@ -217,16 +217,19 @@ def continuousLoop(): # Code that runs every loop
         GVARS['lastNoteTime'] = 0
         break
   elif playbackCommand == 3: # Skip to previous note
+    resetVibrations()
     GVARS['melodyIndex'] = GVARS['melodyIndex'] - 1 if GVARS['melodyIndex'] != 0 else totalNotes - 1
     GVARS['beatIndex'] = GVARS['beatIndex'] - beatLegend[melody[GVARS['melodyIndex']][1]] \
       if GVARS['beatIndex'] >= beatLegend[melody[GVARS['melodyIndex']][1]] \
       else totalBeats - beatLegend[melody[GVARS['melodyIndex']][1]]
+    GVARS['lastNoteTime'] = 0
   elif playbackCommand == 4: # Play
     GVARS['beginMelody'] = True
   elif playbackCommand == 5: # Pause
     resetVibrations()
     GVARS['beginMelody'] = False
     GVARS['sound'].stop()
+    GVARS['lastNoteTime'] = 0
   if (GVARS['playbackCommand'] == playbackCommand): # If playbackCommand changed, don't get rid of it just yet
     GVARS['playbackCommand'] = 0
 
