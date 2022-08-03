@@ -1,5 +1,6 @@
 from time import sleep
 import time
+from datetime import datetime
 from pynput.keyboard import Key, Listener
 import random
 import math
@@ -21,7 +22,13 @@ from HapticVest.bhaptics import haptic_player
 
 player = haptic_player.HapticPlayer()
 
-isPiano = False # Whether using piano keyboard or computer keyboard
+# For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
+melodies = [
+  [[9,1], [12,1], [9,1], [5,0], [9,0], [9,1], [12,0], [17,0], [19,1], [24,1], [24,0], [24,1], [24,0], [24,0], [23,1], [21,0]] 
+]
+melodyIndex = 0
+secondsPerBar = 6
+isPiano = True # Whether using piano keyboard or computer keyboard
 mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
@@ -30,8 +37,8 @@ mode = 5
 # 4 is playback of prerecorded melody without haptics
 # 5 is playback of prerecorded melody with haptics
 
-# For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
-melody = [[9,1], [12,1], [9,1], [5,0], [9,0], [9,1], [12,0], [17,0], [19,1], [24,1], [24,0], [24,1], [24,0], [24,0], [23,1], [21,0]]
+writeToFile = True
+melody = melodies[melodyIndex]
 beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
@@ -54,7 +61,6 @@ directions = [
   [[5,9],[6,10],[7,11],[8,12]] # right
 ]
 
-secondsPerBar = 6
 rangeUpdateTime = 10 # range vibration updates every 10 ms
 rangeTime = 400 # time to move to next note (or to complete sweep if isSweepRange == True)
 sweepTime = 75 # milliseconds
@@ -143,6 +149,8 @@ def startVibrations(keyNum, durationNum = 0):
   GVARS['sweepPhase'] = 0
   GVARS['accidentalPhase'] = 0
   GVARS['vibrationStartTime'] = time.time_ns()
+  if writeToFile:
+    f.write(f"Vibrate {keyNum},{durationNum} at {GVARS['vibrationStartTime']}\n")
 
 def updateVibrations():
   if GVARS['oldPOV'] != None:
@@ -362,6 +370,9 @@ def midi_input_main(device_id=None):
     # Code for when a piano key is pressed
     events = event_get()
     for e in events:
+      if writeToFile and e.type in [pygame.midi.MIDIIN] and e.status == 144:
+        f.write(f"MIDI {e.data1} at {time.time_ns()}\n")
+
       if e.type in [pg.QUIT]:
         going = False
       if e.type in [pg.KEYDOWN]:
@@ -409,6 +420,13 @@ def midi_input_main(device_id=None):
 
 pygame.mixer.init(44100,-16,2,512)
 sleep(3) # Needs a few seconds to boot up or something
+if writeToFile:
+  now = datetime.now()
+  dt_string = now.strftime("%Y%m%d,%H%M%S")
+  f = open(f"{mode}_{dt_string}", "w")
+  f.write(f"Mode {mode}\n")
+  f.write(f"Melody {melodyIndex}: {melody}\n")
+  f.write(f"Speed {secondsPerBar}\n")
 print("Begin!")
 if isPiano:
   midi_input_main(1)
@@ -418,3 +436,5 @@ else:
   listener.start()
   while GVARS['isRunning']:
     continuousLoop()
+if writeToFile:
+  f.close()
