@@ -29,13 +29,14 @@ melodies = [
 melodyIndex = 0
 secondsPerBar = 6
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 5
+mode = 6
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
 # 3 is testing with a prerecorded melody
 # 4 is playback of prerecorded melody without haptics
 # 5 is playback of prerecorded melody with haptics
+# 6 is the initial test (just logging the data)
 
 writeToFile = True
 melody = melodies[melodyIndex]
@@ -155,9 +156,7 @@ def startVibrations(keyNum, durationNum = 0):
 def updateVibrations():
   if GVARS['oldPOV'] != None:
     moveRange()
-    # sweep()
     vibrateBackPoint()
-    # vibrateAccidental()
 
 def moveRange():
   if isSweepRange:
@@ -302,18 +301,21 @@ def pressPlayNote(): # C3 on piano, space on computer
 ###########################
 
 def on_press(key):
-  print('{0} pressed'.format(
-      key))
+  print('{0} pressed'.format(key))
+  if writeToFile:
+    f.write(f"Computer {key} at {time.time_ns()}\n")
+
   if key == Key.esc:
     # Stop listener
     resetVibrations()
     GVARS['isRunning'] = False
-  if key == Key.space:
-    pressPlayNote()
-  if mode == 0 and hasattr(key, 'char') and key.char in keys:
-    startVibrations(keys.index(key.char))
-  if (mode == 4 or mode == 5) and hasattr(key, 'char') and key.char in playbackKeys:
-    GVARS['playbackCommand'] = playbackKeys.index(key.char) + 1
+  if not isPiano:
+    if key == Key.space:
+      pressPlayNote()
+    if mode == 0 and hasattr(key, 'char') and key.char in keys:
+      startVibrations(keys.index(key.char))
+    if (mode == 4 or mode == 5) and hasattr(key, 'char') and key.char in playbackKeys:
+      GVARS['playbackCommand'] = playbackKeys.index(key.char) + 1
 
 
 #######################
@@ -363,7 +365,7 @@ def midi_input_main(device_id=None):
   pg.display.set_mode((1, 1))
 
   going = True
-  while going:
+  while going and GVARS["isRunning"]:
 
     continuousLoop()
 
@@ -374,8 +376,6 @@ def midi_input_main(device_id=None):
         f.write(f"MIDI {e.data1} at {time.time_ns()}\n")
 
       if e.type in [pg.QUIT]:
-        going = False
-      if e.type in [pg.KEYDOWN]:
         going = False
       if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
         resetVibrations()
@@ -428,12 +428,13 @@ if writeToFile:
   f.write(f"Melody {melodyIndex}: {melody}\n")
   f.write(f"Speed {secondsPerBar}\n")
 print("Begin!")
+
+listener = Listener(
+  on_press=on_press)
+listener.start()
 if isPiano:
   midi_input_main(1)
 else:
-  listener = Listener(
-    on_press=on_press)
-  listener.start()
   while GVARS['isRunning']:
     continuousLoop()
 if writeToFile:
