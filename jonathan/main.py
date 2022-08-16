@@ -24,12 +24,12 @@ player = haptic_player.HapticPlayer()
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
 melodies = [
-  [[9,1], [12,1], [9,1], [5,0], [9,0], [9,1], [12,0], [17,0], [19,1], [24,1], [24,0], [24,1], [24,0], [24,0], [23,1], [21,0]] 
+  [[0,1], [4,0], [5,0], [7,1], [9,0], [7,0], [16,1], [14,0], [16,0], [12,1], [19,1], [21,0], [17,0], [14,0], [12,0], [11,1], [7,1], [12,0], [12,0], [14,0], [19,0], [12,1]]
 ]
 melodyIndex = 0
-secondsPerBar = 6
+secondsPerBar = 3
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 6
+mode = 4
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody

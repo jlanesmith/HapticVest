@@ -24,7 +24,6 @@ def on_press(key):
   elif key == Key.space:
     finishMelody()
   elif hasattr(key, 'char') and key.char == makeLongerKey:
-    print(melody[-2])
     if melody[-2] == "0":
       melody = melody[:-2] + "1]"
   elif hasattr(key, 'char') and key.char in keys:
