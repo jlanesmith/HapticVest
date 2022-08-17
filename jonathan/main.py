@@ -24,10 +24,9 @@ player = haptic_player.HapticPlayer()
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
 melodies = [
-  [[0,1], [4,0], [5,0], [7,1], [9,0], [7,0], [16,1], [14,0], [16,0], [12,1], [19,1], [21,0], [17,0], [14,0], [12,0], [11,1], [7,1], [12,0], [12,0], [14,0], [19,0], [12,1]]
-]
+[[0,0], [4,0], [9,0], [7,0], [5,1], [7,0], [4,0], [2,1], [11,0], [7,0], [12,1]]]
 melodyIndex = 0
-secondsPerBar = 3
+secondsPerBar = 2
 isPiano = True # Whether using piano keyboard or computer keyboard
 mode = 4
 # 0 is just learning the notes
@@ -309,9 +308,10 @@ def on_press(key):
     # Stop listener
     resetVibrations()
     GVARS['isRunning'] = False
-  if not isPiano:
+  if not isPiano or mode == 4:
     if key == Key.space:
       pressPlayNote()
+  if not isPiano:
     if mode == 0 and hasattr(key, 'char') and key.char in keys:
       startVibrations(keys.index(key.char))
     if (mode == 4 or mode == 5) and hasattr(key, 'char') and key.char in playbackKeys:
