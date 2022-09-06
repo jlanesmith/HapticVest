@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 4
+mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -47,40 +47,19 @@ melody = melodies[melodyIndex]
 beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
-isSweepRange = True # Whether to just sweep to indicate changing octaves
-isOldRange = False # Whether the range goes to each point or just the 3 points (left, centre, right)
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
 
-pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 backPointPins = [[0], [16], [1,2], [9,10], [17,18], [3], [19]] # [[0], [1,2], [3], [9,10], [16], [17,18], [19]]
-accidentalPins = [0,2,4,10,12,14] 
 rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] #
 
-numSweepPhases = 4
-directions = [
-  [[2,3],[6,7],[10,11],[14,15]], # down
-  [[4],[7],[10],[13]], # down-left
-  [[8,12],[7,11],[6,10],[5,9]], # left
-  [[16],[11],[6],[1]], # up-left
-  [[14,15],[10,11],[6,7],[2,3]], # up
-  [[13],[10],[7],[4]], # up-right
-  [[5,9],[6,10],[7,11],[8,12]] # right
-]
-
-rangeUpdateTime = 10 # range vibration updates every 10 ms
-rangeTime = 400 # time to move to next note (or to complete sweep if isSweepRange == True)
-sweepTime = 75 # milliseconds
-accidentalTime = 400 # milliseconds
-durations =  [i * secondsPerBar - sweepTime*(numSweepPhases-1) for i in [250, 500, 1000]] # Quarter note, half note, whole note
-
-maxRangeIntensity = 70
-sweepIntensity = [80, 100] # Cardinal notes, diagonal notes
+rangeTime = 400 # time to complete sweep if changing octaves
+durations =  [i * secondsPerBar for i in [250, 500, 1000]] # Quarter note, half note, whole note
 backPointIntensity = [70, 100] # Center notes, outside notes
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
-sweepDirections = [0,0,1,2,2,3,3,4,4,5,6,6]
-accidentals = [-1,1,-1,0,-1,-1,1,-1,1,-1,0,-1] # -1 none, 0 flat, 1 sharp
+convertToWhiteNote = [0,0,1,2,2,3,3,4,4,5,6,6]
 noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 
@@ -108,16 +87,12 @@ GVARS = {
   'isGuessed': True, # Whether the correct note has been guessed yet
 
   'keyNum': None, # Number of note to be vibrated, between 0 and 24
-  'durationNum': 0,
-  'pointOfVibration': 1.5, # 0 to 3
-  'oldPOV': None,
-  'newPOV': None,
-  'direction': None, # 0-6, refers to which "white note" the note is (E.g. for C#, it's C)
-  'isSharp': False,
+  'durationNum': 0, # See `durations` array
+  'whiteNote': None, # 0-6, refers to which "white note" the note is (E.g. for C#, it's C)
   'vibrationStartTime':  0,
   'moveRangePhase': 0, # Phases within moving through the range
   'newOctave': 0, # 1 if moved up an octave, -1 if moved down an octave
-  'sweepPhase': 0, # Phases within sweeping
+  'hasStartedVibration': 0, # Whether the back point has started vibrating yet
 }
 
 
@@ -138,13 +113,12 @@ def playAudio(midiNote):
   arr2 = numpy.c_[arr,arr]
   GVARS['sound'] = pygame.sndarray.make_sound(arr2)
   GVARS['sound'].play(-1)
+  f.write(f"Audio {midiNote} at {time.time_ns()}\n")
 
 def startVibrations(keyNum, durationNum = 0):
+  resetVibrations()
   GVARS['durationNum'] = durationNum
-  GVARS['newPOV'] = keyNum/8 if isOldRange else (0 if keyNum < 12 else (3 if keyNum > 12 else 1.5))
-  GVARS['oldPOV'] = GVARS['pointOfVibration']
-  GVARS['direction'] = sweepDirections[keyNum%12]
-  GVARS['isSharp'] = accidentals[keyNum%12]
+  GVARS['whiteNote'] = convertToWhiteNote[keyNum%12]
   if GVARS['keyNum'] != None:
     if int(int(GVARS['keyNum'])/12) > int(keyNum/12):
       GVARS['newOctave'] = -1
@@ -152,79 +126,36 @@ def startVibrations(keyNum, durationNum = 0):
       GVARS['newOctave'] = 1 
   GVARS['keyNum'] = keyNum
   GVARS['moveRangePhase'] = 0
-  GVARS['sweepPhase'] = 0
-  GVARS['accidentalPhase'] = 0
+  GVARS['hasStartedVibration'] = 0
   GVARS['vibrationStartTime'] = time.time_ns()
   if writeToFile:
     f.write(f"Vibrate {keyNum},{durationNum} at {GVARS['vibrationStartTime']}\n")
 
 def updateVibrations():
-  if GVARS['oldPOV'] != None:
+  if GVARS['whiteNote'] != None:
     moveRange()
     vibrateBackPoint()
 
 def moveRange():
-  if isSweepRange:
-    if (GVARS['newOctave'] != 0 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
-      pinIndex = rangePins[int(GVARS['moveRangePhase'])] if GVARS['newOctave'] == 1 else rangePins[3 - int(GVARS['moveRangePhase'])]
-      player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(rangeTime/4))
-      GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
-      if GVARS['moveRangePhase'] == 4:
-        GVARS['newOctave'] = 0
-  else:
-    if (GVARS['moveRangePhase'] < int(rangeTime/rangeUpdateTime) and \
-    time.time_ns() - GVARS['vibrationStartTime'] >= rangeUpdateTime*GVARS['moveRangePhase'] * 1000000):
-      GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
-      GVARS['pointOfVibration'] = GVARS['oldPOV'] + (GVARS['newPOV'] - GVARS['oldPOV'])*(GVARS['moveRangePhase']/(rangeTime/rangeUpdateTime))
-      for index, rangeInfo in enumerate(getRangeInfo(GVARS['pointOfVibration'])):
-        player.submit_dot("range" + str(index), "VestFront", [{"index": rangePins[int(rangeInfo[0])], "intensity": int(rangeInfo[1])}], 10000)
+  if (GVARS['newOctave'] != 0 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
+    pinIndex = rangePins[int(GVARS['moveRangePhase'])] if GVARS['newOctave'] == 1 else rangePins[3 - int(GVARS['moveRangePhase'])]
+    player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(rangeTime/4))
+    GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
+    if GVARS['moveRangePhase'] == 4:
+      GVARS['newOctave'] = 0
 
-def sweep():
-  # direction: see 3d array
-  # duration: time to hold the last vibration
-  nextUpdateTime = sweepTime*GVARS['sweepPhase'] if GVARS['sweepPhase'] < 4 else \
-    sweepTime*(numSweepPhases-1) + durations[GVARS['durationNum']]
-  if (GVARS['sweepPhase'] < numSweepPhases and time.time_ns() - GVARS['vibrationStartTime'] >= nextUpdateTime * 1000000):
-    phaseTime = int(durations[GVARS['durationNum']] if GVARS['sweepPhase'] == numSweepPhases-1 else sweepTime)
-    for index, i in enumerate(directions[GVARS['direction']][GVARS['sweepPhase']]):
-      player.submit_dot(i-1, "VestBack", [{"index": pins[i-1], "intensity": sweepIntensity[GVARS['direction']%2]}], phaseTime)
-    GVARS['sweepPhase'] = GVARS['sweepPhase'] + 1
-
-# Instead of sweep()
 def vibrateBackPoint():
   timeToWait = rangeTime if (GVARS['newOctave'] != 0 or mode != 0) else 0 # Go immediately if mode == 0 and no sweep for the range
-  if (GVARS['sweepPhase'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= timeToWait * 1000000):
-    for i in backPointPins[GVARS['direction']]:
-      player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['direction']]) > 1]}], durations[GVARS['durationNum']])
-    GVARS['sweepPhase'] = 1
-
-def vibrateAccidental():
-  if (GVARS['accidentalPhase'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= sweepTime*1 * 1000000):
-    GVARS['accidentalPhase'] = 1
-    if (GVARS['isSharp'] == 0 or GVARS['isSharp'] == 1):
-      for i in range(len(accidentalPins)):
-        player.submit_dot("accidental" + str(i), "Right" if GVARS['isSharp'] else "Left", \
-          [{"index": accidentalPins[i], "intensity": 100}], accidentalTime)
+  if (GVARS['hasStartedVibration'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= timeToWait * 1000000):
+    for i in backPointPins[GVARS['whiteNote']]:
+      player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['whiteNote']]) > 1]}], durations[GVARS['durationNum']])
+    GVARS['hasStartedVibration'] = 1
 
 def resetVibrations():
   player.submit_dot("range0", "VestFront", [{"index": 90, "intensity": 0}], 1)
   player.submit_dot("range1", "VestFront", [{"index": 91, "intensity": 0}], 1)
-  for i in range(16):
+  for i in range(20):
     player.submit_dot(i, "VestBack", [{"index": pins[i], "intensity": 0}], 1)
-  for i in range(len(accidentalPins)):
-    player.submit_dot("accidental" + str(i), "Left", [{"index": accidentalPins[i], "intensity": 0}], 1)
-    player.submit_dot("accidental" + str(i), "Right", [{"index": accidentalPins[i], "intensity": 0}], 1)
-
-def getRangeInfo(POV): # point of vibration
-  justOneActuator = [0,1,2,3]
-  if POV in justOneActuator:
-    return [[POV, maxRangeIntensity]]
-  elif POV > 0 and POV < 1:
-    return [[0, (1-POV)*maxRangeIntensity], [1, (POV-0)*maxRangeIntensity]]
-  elif POV > 1 and POV < 2:
-    return [[1, (2-POV)*maxRangeIntensity], [2, (POV-1)*maxRangeIntensity]]
-  elif POV > 2 and POV < 3:
-    return [[2, (3-POV)*maxRangeIntensity], [3, (POV-2)*maxRangeIntensity]]
 
 def continuousLoop(): # Code that runs every loop
   updateVibrations()
@@ -362,14 +293,11 @@ def midi_input_main(device_id=None):
 
   pygame.midi.init()
 
-  # _print_midi_device_info()
-
   if device_id is None:
     input_id = pygame.midi.get_default_input_id()
   else:
     input_id = device_id
 
-  # print("using input_id :%s:" % input_id)
   i = pygame.midi.Input(input_id)
 
   pg.display.set_mode((1, 1))
