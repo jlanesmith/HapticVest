@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 0
+mode = 6
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -242,10 +242,9 @@ def pressPlayNote(): # C3 on piano, \ on computer
 ###########################
 
 def on_press(key):
-  print('{0} pressed'.format(key))
-  if writeToFile:
-    # Write code to filter what keys can be printed (probably not volume keys)
+  if writeToFile and (key == Key.esc or hasattr(key, 'char') and (key.char.isnumeric() and mode == 6 or key.char == '\\')):
     f.write(f"Computer {key} at {time.time_ns()}\n")
+    print(f"Computer {key}")
 
   if key == Key.esc:
     resetVibrations()
