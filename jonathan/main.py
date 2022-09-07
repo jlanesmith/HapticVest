@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 5
+mode = 0
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -119,11 +119,13 @@ def startVibrations(keyNum, durationNum = 0):
   resetVibrations()
   GVARS['durationNum'] = durationNum
   GVARS['whiteNote'] = convertToWhiteNote[keyNum%12]
-  if GVARS['keyNum'] != None:
+  if GVARS['keyNum'] != None and GVARS['isGuessed']:
     if int(int(GVARS['keyNum'])/12) > int(keyNum/12):
       GVARS['newOctave'] = -1
     elif int(int(GVARS['keyNum'])/12) < int(keyNum/12):
       GVARS['newOctave'] = 1 
+    else:
+      GVARS['newOctave'] = 0
   GVARS['keyNum'] = keyNum
   GVARS['moveRangePhase'] = 0
   GVARS['hasStartedVibration'] = 0
@@ -137,12 +139,10 @@ def updateVibrations():
     vibrateBackPoint()
 
 def moveRange():
-  if (GVARS['newOctave'] != 0 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
+  if (GVARS['newOctave'] != 0 and GVARS['moveRangePhase'] != 4 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
     pinIndex = rangePins[int(GVARS['moveRangePhase'])] if GVARS['newOctave'] == 1 else rangePins[3 - int(GVARS['moveRangePhase'])]
     player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(rangeTime/4))
     GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
-    if GVARS['moveRangePhase'] == 4:
-      GVARS['newOctave'] = 0
 
 def vibrateBackPoint():
   timeToWait = rangeTime if (GVARS['newOctave'] != 0 or mode != 0) else 0 # Go immediately if mode == 0 and no sweep for the range
@@ -224,7 +224,7 @@ def continuousLoop(): # Code that runs every loop
       startVibrations(newKeyNum, melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1])
     GVARS['isGuessed'] = False
 
-def pressPlayNote(): # C3 on piano, space on computer
+def pressPlayNote(): # C3 on piano, \ on computer
   if mode == 2 or mode == 3 or mode == 4 or mode == 5: # Melody
     if not GVARS['beginMelody']:
       GVARS['beginMelody'] = True
@@ -244,13 +244,13 @@ def pressPlayNote(): # C3 on piano, space on computer
 def on_press(key):
   print('{0} pressed'.format(key))
   if writeToFile:
+    # Write code to filter what keys can be printed (probably not volume keys)
     f.write(f"Computer {key} at {time.time_ns()}\n")
 
   if key == Key.esc:
-    # Stop listener
     resetVibrations()
     GVARS['isRunning'] = False
-  if key == Key.space:
+  if hasattr(key, 'char') and key.char == '\\':
     pressPlayNote()
   if not isPiano:
     if mode == 0 and hasattr(key, 'char') and key.char in keys:
