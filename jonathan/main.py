@@ -87,6 +87,7 @@ GVARS = {
   'isGuessed': True, # Whether the correct note has been guessed yet
 
   'keyNum': None, # Number of note to be vibrated, between 0 and 24
+  'previousKeyNum': None, # Key num of the previous note, used for beeping during mode 5
   'durationNum': 0, # See `durations` array
   'whiteNote': None, # 0-6, refers to which "white note" the note is (E.g. for C#, it's C)
   'vibrationStartTime':  0,
@@ -119,13 +120,14 @@ def startVibrations(keyNum, durationNum = 0):
   resetVibrations()
   GVARS['durationNum'] = durationNum
   GVARS['whiteNote'] = convertToWhiteNote[keyNum%12]
-  if GVARS['keyNum'] != None and GVARS['isGuessed']:
+  if GVARS['keyNum'] != None and (GVARS['isGuessed'] or mode == 4 or mode == 5):
     if int(int(GVARS['keyNum'])/12) > int(keyNum/12):
       GVARS['newOctave'] = -1
     elif int(int(GVARS['keyNum'])/12) < int(keyNum/12):
       GVARS['newOctave'] = 1 
     else:
       GVARS['newOctave'] = 0
+  GVARS['previousKeyNum'] = GVARS['keyNum']
   GVARS['keyNum'] = keyNum
   GVARS['moveRangePhase'] = 0
   GVARS['hasStartedVibration'] = 0
@@ -187,7 +189,8 @@ def continuousLoop(): # Code that runs every loop
   elif playbackCommand == 5: # Pause
     resetVibrations()
     GVARS['beginMelody'] = False
-    GVARS['sound'].stop()
+    if GVARS['sound']:
+      GVARS['sound'].stop()    
     GVARS['lastNoteTime'] = 0
   if (GVARS['playbackCommand'] == playbackCommand): # If playbackCommand changed, don't get rid of it just yet
     GVARS['playbackCommand'] = 0
@@ -210,14 +213,14 @@ def continuousLoop(): # Code that runs every loop
             GVARS['sound'].stop()
           return # This used to be continue
       newKeyNum = melody[GVARS['melodyIndex']][0]
-    else:
+    else: # mode == 2
       while True:
         newNoteIndex = validNotes.index(GVARS['randomMelodyNote'][0]) + random.randint(-3, 3)
         if newNoteIndex <= 14 and newNoteIndex >= 0:
           break
       GVARS['randomMelodyNote'] = [validNotes[newNoteIndex], random.choice([0,1])]
       newKeyNum = GVARS['randomMelodyNote'][0]
-    if mode == 4 or mode == 5:
+    if mode == 4:
       playAudio(newKeyNum + 60)
     GVARS['lastNoteTime'] = time.time_ns()
     if mode != 4:
@@ -328,9 +331,9 @@ def midi_input_main(device_id=None):
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
             pygame.mixer.music.play()
-        elif mode == 2 or mode == 3:
+        elif mode == 2 or mode == 3 or mode == 5:
           if GVARS['keyNum'] != None:
-            if e.data1 - 60 == GVARS['keyNum']:
+            if e.data1 - 60 == GVARS['keyNum'] or (mode == 5 and GVARS['previousKeyNum'] != None and e.data1 - 60 == GVARS['previousKeyNum']):
               GVARS['isGuessed'] = True
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
