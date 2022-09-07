@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 6
+mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -317,8 +317,6 @@ def midi_input_main(device_id=None):
       if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
         resetVibrations()
         going = False
-      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 == 48: # C3
-        pressPlayNote()
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
         if mode == 0:
           startVibrations(e.data1 - 60)
@@ -338,7 +336,9 @@ def midi_input_main(device_id=None):
               pygame.mixer.music.load("jonathan/wrong.mp3")
               pygame.mixer.music.play()
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 in [36, 38, 40, 41, 43]: # C2 to G2
-        if mode == 4 or mode == 5:
+        if mode in [1,2,3] and e.data1 == 41:
+          pressPlayNote()
+        elif mode == 4 or mode == 5:
             GVARS['playbackCommand'] = [36, 38, 40, 41, 43].index(e.data1) + 1
     if i.poll():
       midi_events = i.read(10)
