@@ -33,14 +33,15 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 5
+mode = 7
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
 # 3 is testing with a prerecorded melody
 # 4 is playback of prerecorded melody without haptics
 # 5 is playback of prerecorded melody with haptics
-# 6 is just logging the data (for initial test or for test without haptics)
+# 6 is just logging the data (for initial test)
+# 7 is testing with a precorded melody but no haptics! It just waits for you to play
 
 writeToFile = True
 melody = melodies[melodyIndex]
@@ -50,7 +51,8 @@ totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
 
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-backPointPins = [[0], [16], [1,2], [9,10], [17,18], [3], [19]] # [[0], [1,2], [3], [9,10], [16], [17,18], [19]]
+# backPointPins = [[0], [16], [1,2], [9,10], [17,18], [3], [19]] 
+backPointPins = [[0], [8], [16, 17], [9,10], [3], [11], [18, 19]] 
 rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] #
 
 rangeTime = 400 # time to complete sweep if changing octaves
@@ -103,7 +105,6 @@ GVARS = {
 
 def doRandomNote():
   startVibrations(random.choice(validNotes[0:7] if GVARS['keyNum'] == None else validNotes)) # Start off in the lower octave
-  print(noteNames[GVARS['keyNum']%12], (math.floor(GVARS['keyNum']/12)+1))
   
 def playAudio(midiNote):
   if GVARS['sound']:
@@ -196,8 +197,11 @@ def continuousLoop(): # Code that runs every loop
     GVARS['playbackCommand'] = 0
 
   noteDuration = beatLegend[melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]] * 250000000 * secondsPerBar
-  if GVARS['beginMelody'] and (((mode == 2 or mode == 3) and GVARS['isGuessed']) or (mode == 4 or mode == 5)) \
-    and (time.time_ns() - GVARS['lastNoteTime'] >= noteDuration):
+  if GVARS['beginMelody'] and \
+    ((mode == 2 or mode == 3) and GVARS['isGuessed'] or mode == 4 or mode == 5) \
+    and time.time_ns() - GVARS['lastNoteTime'] >= noteDuration \
+    or mode == 7 and GVARS['isGuessed']:
+
     newKeyNum =  GVARS['keyNum']
     if mode != 2:
       if GVARS['lastNoteTime'] > 0: # If it's not the first note
@@ -223,8 +227,10 @@ def continuousLoop(): # Code that runs every loop
     if mode == 4:
       playAudio(newKeyNum + 60)
     GVARS['lastNoteTime'] = time.time_ns()
-    if mode != 4:
+    if mode != 4 and mode != 7:
       startVibrations(newKeyNum, melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1])
+    else:
+      GVARS['keyNum'] = newKeyNum  
     GVARS['isGuessed'] = False
 
 def pressPlayNote(): # C3 on piano, \ on computer
@@ -331,7 +337,7 @@ def midi_input_main(device_id=None):
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
             pygame.mixer.music.play()
-        elif mode == 2 or mode == 3 or mode == 5:
+        elif mode == 2 or mode == 3 or mode == 5 or mode == 7:
           if GVARS['keyNum'] != None:
             if e.data1 - 60 == GVARS['keyNum'] or (mode == 5 and GVARS['previousKeyNum'] != None and e.data1 - 60 == GVARS['previousKeyNum']):
               GVARS['isGuessed'] = True
