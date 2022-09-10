@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 7
+mode = 8
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -42,6 +42,7 @@ mode = 7
 # 5 is playback of prerecorded melody with haptics
 # 6 is just logging the data (for initial test)
 # 7 is testing with a precorded melody but no haptics! It just waits for you to play
+# 8 is testing with a prerecorded melody without haptics, with audio
 
 writeToFile = True
 melody = melodies[melodyIndex]
@@ -198,7 +199,7 @@ def continuousLoop(): # Code that runs every loop
 
   noteDuration = beatLegend[melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]] * 250000000 * secondsPerBar
   if GVARS['beginMelody'] and \
-    ((mode == 2 or mode == 3) and GVARS['isGuessed'] or mode == 4 or mode == 5) \
+    ((mode == 2 or mode == 3 or mode == 8) and GVARS['isGuessed'] or mode == 4 or mode == 5) \
     and time.time_ns() - GVARS['lastNoteTime'] >= noteDuration \
     or mode == 7 and GVARS['isGuessed']:
 
@@ -224,17 +225,17 @@ def continuousLoop(): # Code that runs every loop
           break
       GVARS['randomMelodyNote'] = [validNotes[newNoteIndex], random.choice([0,1])]
       newKeyNum = GVARS['randomMelodyNote'][0]
-    if mode == 4:
+    if mode == 4 or mode == 8:
       playAudio(newKeyNum + 60)
     GVARS['lastNoteTime'] = time.time_ns()
-    if mode != 4 and mode != 7:
+    if mode != 4 and mode != 7 and mode != 8:
       startVibrations(newKeyNum, melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1])
     else:
       GVARS['keyNum'] = newKeyNum  
     GVARS['isGuessed'] = False
 
-def pressPlayNote(): # C3 on piano, \ on computer
-  if mode == 2 or mode == 3 or mode == 4 or mode == 5: # Melody
+def pressPlayNote(): # F2 on piano, \ on computer
+  if mode in [2,3,4,5,8]: # Melody
     if not GVARS['beginMelody']:
       GVARS['beginMelody'] = True
     if not GVARS['isGuessed'] and (mode == 2 or mode == 3):
@@ -337,15 +338,15 @@ def midi_input_main(device_id=None):
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
             pygame.mixer.music.play()
-        elif mode == 2 or mode == 3 or mode == 5 or mode == 7:
+        elif mode in [2,3,5,7,8]:
           if GVARS['keyNum'] != None:
             if e.data1 - 60 == GVARS['keyNum'] or (mode == 5 and GVARS['previousKeyNum'] != None and e.data1 - 60 == GVARS['previousKeyNum']):
               GVARS['isGuessed'] = True
-            else:
+            elif mode != 8:
               pygame.mixer.music.load("jonathan/wrong.mp3")
               pygame.mixer.music.play()
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 in [36, 38, 40, 41, 43]: # C2 to G2
-        if mode in [1,2,3] and e.data1 == 41:
+        if mode in [1,2,3,8] and e.data1 == 41:
           pressPlayNote()
         elif mode == 4 or mode == 5:
             GVARS['playbackCommand'] = [36, 38, 40, 41, 43].index(e.data1) + 1
