@@ -33,7 +33,7 @@ melodies = [
 melodyIndex = 2
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 8
+mode = 0
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -198,9 +198,10 @@ def continuousLoop(): # Code that runs every loop
     GVARS['playbackCommand'] = 0
 
   noteDuration = beatLegend[melody[GVARS['melodyIndex']][1] if mode != 2 else GVARS['randomMelodyNote'][1]] * 250000000 * secondsPerBar
+  # Note: for mode 8, the duration is half as much
   if GVARS['beginMelody'] and \
     ((mode == 2 or mode == 3 or mode == 8) and GVARS['isGuessed'] or mode == 4 or mode == 5) \
-    and time.time_ns() - GVARS['lastNoteTime'] >= noteDuration \
+    and time.time_ns() - GVARS['lastNoteTime'] >= noteDuration * (0.5 if mode == 8 else 1) \
     or mode == 7 and GVARS['isGuessed']:
 
     newKeyNum =  GVARS['keyNum']
@@ -342,6 +343,8 @@ def midi_input_main(device_id=None):
           if GVARS['keyNum'] != None:
             if e.data1 - 60 == GVARS['keyNum'] or (mode == 5 and GVARS['previousKeyNum'] != None and e.data1 - 60 == GVARS['previousKeyNum']):
               GVARS['isGuessed'] = True
+              if mode == 8:
+                GVARS['lastNoteTime'] = time.time_ns() # So that it doesn't immediately go to the next note
             elif mode != 8:
               pygame.mixer.music.load("jonathan/wrong.mp3")
               pygame.mixer.music.play()
