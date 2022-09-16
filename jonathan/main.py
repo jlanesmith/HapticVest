@@ -31,7 +31,37 @@ melodies = [
   [[7,0], [12,0], [12,0], [7,0], [9,1], [7,1], [4,0], [2,0], [4,0], [7,0], [12,1], [16,1], [17,0], [19,0], [17,1], [16,0], [19,0], [24,1], [23,1], [19,0], [7,0], [12,1]],
   [[4,0], [7,0], [12,1], [9,0], [12,0], [17,0], [19,0], [14,1], [7,1], [16,0], [14,0], [12,1], [21,0], [21,0], [17,0], [14,0], [16,1], [4,1], [5,0], [9,0], [7,1], [0,1]]
 ]
-melodyIndex = 1
+melodyIndex = 2
+melodyChunk = 0
+# 0 full
+# 1 first  2 bars
+# 2 second 2 bars
+# 3 third  2 bars
+# 4 fourth 2 bars
+# 5 first  4 bars
+# 6 second 4 bars
+beatLegend = [1,2,4]
+
+def makeMelody():
+  if melodyChunk == 0:
+    return melodies[melodyIndex]
+  startBeats = [-1, 0, 8,  16, 24, 0,  16]
+  endBeats =   [-1, 8, 16, 24, 32, 16, 32]
+  beatNumber = 0
+  startIndex = 0
+  endIndex = 0
+  for i in range(len(melodies[melodyIndex])):
+    if beatNumber == startBeats[melodyChunk]:
+      startIndex = i
+    beatNumber = beatNumber + beatLegend[melodies[melodyIndex][i][1]]
+    if beatNumber == endBeats[melodyChunk]:
+      endIndex = i+1
+  if endIndex == 0:
+    endIndex = len(melodies[melodyIndex])
+  return melodies[melodyIndex][startIndex:endIndex]
+melody = makeMelody()
+print(melody)
+
 secondsPerBar = 4
 isPiano = True # Whether using piano keyboard or computer keyboard
 mode = 4
@@ -46,8 +76,6 @@ mode = 4
 # 8 is testing with a prerecorded melody without haptics, with audio
 
 writeToFile = True
-melody = melodies[melodyIndex]
-beatLegend = [1,2,4]
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
@@ -382,7 +410,8 @@ if writeToFile:
   dt_string = now.strftime("%Y%m%d,%H%M%S")
   f = open(f"{dt_string}_{mode}", "w")
   f.write(f"Mode {mode}\n")
-  f.write(f"Melody {melodyIndex}: {melody}\n")
+  f.write(f"Melody {melodyIndex}: {melodies[melodyIndex]}\n")
+  f.write(f"Chunk {melodyChunk}: {melody}\n")
   f.write(f"Speed {secondsPerBar}\n")
 print("Begin!")
 
