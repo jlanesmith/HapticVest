@@ -137,6 +137,7 @@ def startVibrations(keyNum, durationNum = 0):
   GVARS['vibrationStartTime'] = time.time_ns()
   if writeToFile:
     f.write(f"Vibrate {keyNum},{durationNum} at {GVARS['vibrationStartTime']}\n")
+  print(f"Vibrate {noteNames[keyNum%12]}: {keyNum},{durationNum}")
 
 def updateVibrations():
   if GVARS['whiteNote'] != None:
@@ -162,33 +163,35 @@ def resetVibrations():
   for i in range(20):
     player.submit_dot(i, "VestBack", [{"index": pins[i], "intensity": 0}], 1)
 
+def skipToPrevious():
+  resetVibrations()
+  GVARS['lastNoteTime'] = 0
+  GVARS['isGuessed'] = True
+
 def continuousLoop(): # Code that runs every loop
   updateVibrations()
   playbackCommand = GVARS['playbackCommand'] # To avoid situtations where it changes during use
   if playbackCommand == 1: # Skip to beginning
-    resetVibrations()
     GVARS['melodyIndex'] = 0
     GVARS['beatIndex'] = 0
-    GVARS['lastNoteTime'] = 0
+    skipToPrevious()
   elif playbackCommand == 2: # Skip to previous bar
-    resetVibrations()
     while True:
       GVARS['melodyIndex'] = GVARS['melodyIndex'] - 1 if GVARS['melodyIndex'] != 0 else totalNotes - 1
       GVARS['beatIndex'] = GVARS['beatIndex'] - beatLegend[melody[GVARS['melodyIndex']][1]] \
         if GVARS['beatIndex'] >= beatLegend[melody[GVARS['melodyIndex']][1]] \
         else totalBeats - beatLegend[melody[GVARS['melodyIndex']][1]]
       if (GVARS['beatIndex'] % 4 == 0):
-        GVARS['lastNoteTime'] = 0
+        skipToPrevious()
         break
   elif playbackCommand == 3: # Skip to previous note
-    resetVibrations()
     GVARS['melodyIndex'] = GVARS['melodyIndex'] - 1 if GVARS['melodyIndex'] != 0 else totalNotes - 1
     GVARS['beatIndex'] = GVARS['beatIndex'] - beatLegend[melody[GVARS['melodyIndex']][1]] \
       if GVARS['beatIndex'] >= beatLegend[melody[GVARS['melodyIndex']][1]] \
       else totalBeats - beatLegend[melody[GVARS['melodyIndex']][1]]
-    GVARS['lastNoteTime'] = 0
+    skipToPrevious()
   elif playbackCommand == 4: # Play
-    GVARS['beginMelody'] = True
+    pressPlayNote()
   elif playbackCommand == 5: # Pause
     resetVibrations()
     GVARS['beginMelody'] = False
@@ -238,10 +241,11 @@ def continuousLoop(): # Code that runs every loop
 
 def pressPlayNote(): # F2 on piano, \ on computer
   if mode in [2,3,4,5,8]: # Melody
-    if not GVARS['beginMelody']:
-      GVARS['beginMelody'] = True
+    GVARS['beginMelody'] = True
     if not GVARS['isGuessed'] and (mode == 2 or mode == 3):
       startVibrations(GVARS['keyNum'], melody[GVARS['melodyIndex']][1] if mode == 3 else GVARS['randomMelodyNote'][1])
+    if not GVARS['isGuessed'] and mode == 8:
+      playAudio(GVARS['keyNum'] + 60)
   elif mode == 1: # No melody, just random notes
     if GVARS['isGuessed']: # This currently won't work for computer keyboard input, only for piano input
       doRandomNote()
@@ -336,9 +340,11 @@ def midi_input_main(device_id=None):
           if GVARS['keyNum'] != None:
             if e.data1 - 60 == GVARS['keyNum']:
               pygame.mixer.music.load("jonathan/correct.wav")
+              f.write(f"Audio correct at {time.time_ns()}\n")
               GVARS['isGuessed'] = True
             else:
               pygame.mixer.music.load("jonathan/wrong.mp3")
+              f.write(f"Audio wrong at {time.time_ns()}\n")
             pygame.mixer.music.play()
         elif mode in [2,3,5,7,8]:
           if GVARS['keyNum'] != None:
@@ -348,11 +354,12 @@ def midi_input_main(device_id=None):
                 GVARS['lastNoteTime'] = time.time_ns() # So that it doesn't immediately go to the next note
             elif mode != 8:
               pygame.mixer.music.load("jonathan/wrong.mp3")
+              f.write(f"Audio wrong at {time.time_ns()}\n")
               pygame.mixer.music.play()
       elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 in [36, 38, 40, 41, 43]: # C2 to G2
-        if mode in [1,2,3,8] and e.data1 == 41:
+        if mode in [1,2] and e.data1 == 41:
           pressPlayNote()
-        elif mode == 4 or mode == 5:
+        elif mode in [4,5,3,7,8]:
             GVARS['playbackCommand'] = [36, 38, 40, 41, 43].index(e.data1) + 1
     if i.poll():
       midi_events = i.read(10)
@@ -370,7 +377,6 @@ def midi_input_main(device_id=None):
 ##########
 
 pygame.mixer.init(44100,-16,2,512)
-sleep(3) # Needs a few seconds to boot up or something
 if writeToFile:
   now = datetime.now()
   dt_string = now.strftime("%Y%m%d,%H%M%S")
