@@ -81,13 +81,12 @@ totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
 
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-# backPointPins = [[0], [16], [1,2], [9,10], [17,18], [3], [19]] 
-backPointPins = [[0], [8], [16, 17], [9,10], [3], [11], [18, 19]] 
+backPointPins = [[0], [8], [16,17], [9,10], [3], [11], [18,19]] 
 rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] #
 
 rangeTime = 400 # time to complete sweep if changing octaves
 durations =  [i * secondsPerBar for i in [250, 500, 1000]] # Quarter note, half note, whole note
-backPointIntensity = [70, 100] # Center notes, outside notes
+backPointIntensity = [70, 100] # 1 motor, 2 motors
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
