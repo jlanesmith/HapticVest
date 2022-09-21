@@ -40,6 +40,22 @@ melodyChunk = 0
 # 4 fourth 2 bars
 # 5 first  4 bars
 # 6 second 4 bars
+
+secondsPerBar = 4
+mode = 2
+# 0 is just learning the notes
+# 1 is testing with random individual notes
+# 2 is testing with a randomly generated melody
+# 3 is testing with a prerecorded melody
+# 4 is playback of prerecorded melody without haptics
+# 5 is playback of prerecorded melody with haptics
+# 6 is just logging the data (for initial test)
+# 7 is testing with a precorded melody but no haptics! It just waits for you to play
+# 8 is testing with a prerecorded melody without haptics, with audio
+
+isPiano = True # Whether using piano keyboard or computer keyboard
+writeToFile = True
+
 beatLegend = [1,2,4]
 
 def makeMelody():
@@ -62,20 +78,6 @@ def makeMelody():
 melody = makeMelody()
 print(melody)
 
-secondsPerBar = 4
-isPiano = True # Whether using piano keyboard or computer keyboard
-mode = 4
-# 0 is just learning the notes
-# 1 is testing with random individual notes
-# 2 is testing with a randomly generated melody
-# 3 is testing with a prerecorded melody
-# 4 is playback of prerecorded melody without haptics
-# 5 is playback of prerecorded melody with haptics
-# 6 is just logging the data (for initial test)
-# 7 is testing with a precorded melody but no haptics! It just waits for you to play
-# 8 is testing with a prerecorded melody without haptics, with audio
-
-writeToFile = True
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
@@ -253,7 +255,7 @@ def continuousLoop(): # Code that runs every loop
     else: # mode == 2
       while True:
         newNoteIndex = validNotes.index(GVARS['randomMelodyNote'][0]) + random.randint(-3, 3)
-        if newNoteIndex <= 14 and newNoteIndex >= 0:
+        if newNoteIndex < 14 and newNoteIndex >= 0:
           break
       GVARS['randomMelodyNote'] = [validNotes[newNoteIndex], random.choice([0,1])]
       newKeyNum = GVARS['randomMelodyNote'][0]
