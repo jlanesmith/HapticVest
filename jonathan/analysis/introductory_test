@@ -1,0 +1,61 @@
+import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+from statistics import mean
+from os import listdir
+
+introductory_test_row = 8
+
+workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
+sheet = workbook.active
+
+mapping = [0, 2, 4, 5, 7, 9, 11]
+session = 1
+
+for subject in range(1,7): # 1 to 6
+
+  files = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
+  intro_files = [f for f in files if f[-1] == '6']
+  results = []
+  for file_name in intro_files:
+    f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{file_name}", "r")
+
+    computer = []
+    midi = []
+
+    text = f.readline()
+    while text:
+      if "Computer" in text and text[10].isnumeric():
+        computer.append((int(text[10]), int(text[16:35])))
+      elif "MIDI" in text:
+        midi.append((int(text[5:7]), int(text[11:30])))
+      text = f.readline()
+
+    i = 0 # Counter for computer data
+    j = 0 # Counter for MIDI data
+
+    for i in range(len(computer)):
+      found_note = False
+      while (not found_note):
+        if mapping[computer[i][0]-1] == midi[j][0]%12 and midi[j][1] > computer[i][1]: # If the correct note
+          if (midi[j][1]-computer[i][1])/1000000000 < 6: # If it's not a huge outlier
+            results.append((midi[j][1]-computer[i][1])/1000000000)
+          j = j + 1
+          found_note = True
+        else:
+          j = j + 1
+
+  sheet.cell(introductory_test_row, subject*2 + session - 1).value = mean(results)
+
+  plt.plot(results, label=subject)
+
+workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
+
+plt.legend()
+plt.ylabel("Time")
+plt.title("Introductory Test Results")
+plt.show()
+
+
+
+
+

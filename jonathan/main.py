@@ -25,13 +25,13 @@ player = haptic_player.HapticPlayer()
 # For melody, first number is note (low C = 0), second number is duration (quarter, half, whole)
 melodies = [
   [[0,0], [4,0], [9,0], [7,0], [5,1], [7,0], [4,0], [2,1], [11,0], [7,0], [12,1]],
-  [[0,0], [7,0], [7,0], [5,0], [4,1], [12,1], [14,0], [17,0], [9,0], [11,0], [12,1]],
+  # [[0,0], [7,0], [7,0], [5,0], [4,1], [12,1], [14,0], [17,0], [9,0], [11,0], [12,1]],
   [[0,1], [4,0], [5,0], [7,1], [9,0], [7,0], [16,1], [14,0], [16,0], [12,1], [7,1], [9,0], [17,0], [14,0], [12,0], [11,1], [7,1], [12,0], [12,0], [14,0], [19,0], [12,1]], #12345
   [[0,0], [2,0], [4,0], [7,0], [12,1], [7,1], [9,0], [12,0], [14,0], [12,0], [16,1], [12,1], [17,0], [19,0], [21,0], [17,0], [16,1], [7,0], [9,0], [14,1], [16,1], [12,1]], #12345
   [[7,0], [12,0], [12,0], [7,0], [9,1], [7,1], [4,0], [2,0], [4,0], [7,0], [12,1], [16,1], [17,0], [19,0], [17,1], [16,0], [21,0], [19,1], [14,1], [9,0], [11,0], [12,1]], #12345
   [[4,0], [7,0], [12,1], [9,0], [5,0], [17,0], [19,0], [14,1], [19,1], [16,0], [14,0], [12,1], [21,0], [21,0], [17,0], [14,0], [16,1], [4,1], [5,0], [9,0], [7,1], [12,1]] #12345
 ]
-melodyIndex = 2
+melodyIndex = 1
 melodyChunk = 0
 # 0 full
 # 1 first  2 bars
@@ -41,8 +41,8 @@ melodyChunk = 0
 # 5 first  4 bars
 # 6 second 4 bars
 
-secondsPerBar = 4
-mode = 2
+secondsPerBar = 7
+mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -83,11 +83,14 @@ totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
 validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for mode 1 and 2
 
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-backPointPins = [[0], [8], [16,17], [9,10], [3], [11], [18,19]] 
-rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] #
+
+# backPointPins = [[0], [8], [16,17], [9,10], [3], [11], [18,19]] # Backwards N
+backPointPins = [[0], [8], [16,17], [9,10], [18,19], [11], [3]] # Edwin's W
+
+rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19]
 
 rangeTime = 400 # time to complete sweep if changing octaves
-durations =  [i * secondsPerBar for i in [250, 500, 1000]] # Quarter note, half note, whole note
+durations =  [int(i * secondsPerBar) for i in [250, 500, 1000]] # Quarter note, half note, whole note
 backPointIntensity = [70, 100] # 1 motor, 2 motors
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
