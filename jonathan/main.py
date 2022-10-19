@@ -180,6 +180,8 @@ def moveRange():
   if (GVARS['newOctave'] != 0 and GVARS['moveRangePhase'] != 4 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
     pinIndex = rangePins[int(GVARS['moveRangePhase'])] if GVARS['newOctave'] == 1 else rangePins[3 - int(GVARS['moveRangePhase'])]
     player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(rangeTime/4))
+    if (GVARS['moveRangePhase'] == 0):
+      f.write(f"Sweep {'Right' if GVARS['newOctave'] == 1 else 'Left'} at {time.time_ns()}\n")
     GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
 
 def vibrateBackPoint():
