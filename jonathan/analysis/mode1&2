@@ -4,24 +4,25 @@ from statistics import mean
 from os import listdir
 import numpy as np
 
-# This file might also be used for mode 2
+mode = 1
+willPlot = False
 
-mode_1_start_row = 11
+startRow = 11 if mode == 1 else 25
 
 workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
 sheet = workbook.active
 
-for subject in range(6,7): # 1 to 6
+for subject in range(1,2): # 1 to 6
   for session in range(1,2): # 1 to 2
 
-    files = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
-    intro_files = [f for f in files if f[-1] == '1']
+    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
+    files = [f for f in allFiles if f[-1] == str(mode)]
 
     # note, delta time, sweep, num mistakes
     results = []
 
-    for file_name in intro_files:
-      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{file_name}", "r")
+    for fileName in files:
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{fileName}", "r")
 
       vibration = []
       midi = []
@@ -47,54 +48,63 @@ for subject in range(6,7): # 1 to 6
       j = 0 # Counter for MIDI data
 
       for i in range(len(vibration)):
-        found_note = False
+        foundNote = False
         numMistakes = 0
-        while (not found_note and j < len(midi)):
+        while (not foundNote and j < len(midi)):
           if vibration[i][0] == midi[j][0] - 60 and midi[j][1] > vibration[i][1]: # If the correct note
             isSweep = i > 0 and ((vibration[i][0] >= 12) != (vibration[i-1][0] >= 12))
             results.append((vibration[i][0], (midi[j][1]-vibration[i][1])/1000000000, isSweep, numMistakes))
             j = j + 1
-            found_note = True
+            foundNote = True
           else:
             numMistakes = numMistakes + 1
             j = j + 1
 
+    if len(results) == 0:
+      continue
+
     sweepResults = [a for a in results if a[2]]
     noSweepResults = [a for a in results if not a[2]]
 
-    sheet.cell(mode_1_start_row,   subject*2 + session - 1).value = mean(a[1] for a in results)
-    sheet.cell(mode_1_start_row+1, subject*2 + session - 1).value = mean(a[1] for a in sweepResults)
-    sheet.cell(mode_1_start_row+2, subject*2 + session - 1).value = mean(a[1] for a in noSweepResults)
+    sheet.cell(startRow,   subject*2 + session - 1).value = mean(a[1] for a in results)
+    sheet.cell(startRow+1, subject*2 + session - 1).value = mean(a[1] for a in sweepResults)
+    sheet.cell(startRow+2, subject*2 + session - 1).value = mean(a[1] for a in noSweepResults)
 
-    sheet.cell(mode_1_start_row+6, subject*2 + session - 1).value = mean(a[3] for a in results)
-    sheet.cell(mode_1_start_row+7, subject*2 + session - 1).value = mean(a[3] for a in sweepResults)
-    sheet.cell(mode_1_start_row+8, subject*2 + session - 1).value = mean(a[3] for a in noSweepResults)
+    sheet.cell(startRow+6, subject*2 + session - 1).value = mean(a[3] for a in results)
+    sheet.cell(startRow+7, subject*2 + session - 1).value = mean(a[3] for a in sweepResults)
+    sheet.cell(startRow+8, subject*2 + session - 1).value = mean(a[3] for a in noSweepResults)
 
     for index, i in enumerate([results, sweepResults, noSweepResults]):
       x = range(len(i))
       y = [a[1] for a in i]
       line = np.polyfit(x, y, 1)
       y_line = x*line[0] + line[1]
-      sheet.cell(mode_1_start_row + 3 + index, subject*2 + session - 1).value = line[0]*10
 
-      # plt.plot(x, y_line, 1)
-      # plt.plot([a[1] for a in i], label=subject)
+      # Multiply slope by number of data points so it's more proportional
+      sheet.cell(startRow + 3 + index, subject*2 + session - 1).value = line[0]*len(i)
 
-      # plt.legend()
-      # plt.ylabel("Time")
-      # plt.show()
+      if willPlot:
+        plt.plot(x, y_line, 1)
+        plt.plot([a[1] for a in i], label=subject)
+
+        plt.legend()
+        plt.ylabel("Time")
+        plt.title(f"Time for {['results', 'sweepResults', 'noSweepResults'][index]}")
+        plt.show()
 
       x = range(len(i))
       y = [a[3] for a in i]
       line = np.polyfit(x, y, 1)
       y_line = x*line[0] + line[1]
-      sheet.cell(mode_1_start_row + 9 + index, subject*2 + session - 1).value = line[0]*10
+      sheet.cell(startRow + 9 + index, subject*2 + session - 1).value = line[0]*len(i)
 
-      # plt.plot(x, y_line, 1)
-      # plt.plot([a[3] for a in i], label=subject)
+      if willPlot:
+        plt.plot(x, y_line, 1)
+        plt.plot([a[3] for a in i], label=subject)
 
-      # plt.legend()
-      # plt.ylabel("Time")
-      # plt.show()
+        plt.legend()
+        plt.ylabel("Mistakes")
+        plt.title(f"Mistakes for {['results', 'sweepResults', 'noSweepResults'][index]}")
+        plt.show()
 
 workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
