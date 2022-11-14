@@ -3,12 +3,12 @@ from openpyxl import load_workbook
 from statistics import mean
 from os import listdir
 import numpy as np
+import json
 
-mode = 1
+mode = 3
 willPlot = False
 
-startRow = 11 if mode == 1 else 25
-
+startRow = 39
 workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
 sheet = workbook.active
 
@@ -18,93 +18,119 @@ for subject in range(1,7): # 1 to 6
     allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
     files = [f for f in allFiles if f[-1] == str(mode)]
 
-    # note, delta time, sweep, num mistakes
-    results = []
+    # Find whether haptics is first or not
+    numListens = 0
+    isBefore3 = True
+    for f in allFiles:
+      if f[-1] == str(4) or f[-1] == str(8):
+        numListens = numListens + 1*(1 if isBefore3 else -1)
+      elif f[-1] == str(3):
+        isBefore3 = False
+    hapticsFirst = numListens < 0
 
+    # time, num mistakes
+    results = []
     for fileName in files:
       f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{fileName}", "r")
 
       vibration = []
       midi = []
+      melodyNum = 0
+      melody = []
 
       alreadyVibrated = False
       text = f.readline()
       while text:
-        # Following commented out code doesn't work for Brady or Cameron so I added the if block 5 lines lower
-        # if "Audio correct" in text:
-        #   alreadyVibrated = False
-        if "MIDI" in text and text[5:7] != "41":
+        if "MIDI" in text:
           midi.append((int(text[5:7]), int(text[11:30])))
-          if len(vibration) > 0 and int(text[5:7]) - 60 == vibration[-1][0]:
+          if len(vibration) > 0 and int(text[5:7]) - 60 == vibration[-1][0]: # If you play the correct note
             alreadyVibrated = False
         elif "Vibrate" in text:
           if not (alreadyVibrated and len(vibration) > 0): # Skip if it's a repeat vibration
             extraSpace = 0 if text[9] == "," else 1
             vibration.append((int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace])))
           alreadyVibrated = True
+        elif "Computer Key.space" in text:
+          midi.append((41, int(text[22:41])))
+        elif "Computer '\\\\'" in text:
+          midi.append((41, int(text[17:36])))
+        elif "Melody" in text:
+          melodyNum = int(text[7])
+          melody = json.loads(text[10:])
+
         text = f.readline()
+
+      # Don't worry about the short beginning melodies
+      if len(melody) < 12:
+        continue
 
       i = 0 # Counter for Vibration data
       j = 0 # Counter for MIDI data
+      startTime = vibration[0][1]
+      numMistakes = 0
+      melodyNoteIndex = 0
 
       for i in range(len(vibration)):
         foundNote = False
-        numMistakes = 0
         while (not foundNote and j < len(midi)):
           if vibration[i][0] == midi[j][0] - 60 and midi[j][1] > vibration[i][1]: # If the correct note
-            isSweep = i > 0 and ((vibration[i][0] >= 12) != (vibration[i-1][0] >= 12))
-            results.append((vibration[i][0], (midi[j][1]-vibration[i][1])/1000000000, isSweep, numMistakes))
-            j = j + 1
             foundNote = True
+            melodyNoteIndex = melodyNoteIndex + 1
+          elif midi[j][0] == 41 or midi[j][0] == 36:
+            if melodyNoteIndex == len(melody) or midi[j][0] == 36:
+              melodyNoteIndex = 0
+              startTime = vibration[i][1]
+              numMistakes = 0
           else:
             numMistakes = numMistakes + 1
-            j = j + 1
+          j = j + 1
+        if melodyNoteIndex == len(melody):
+          if (midi[j-1][0] != melody[-1][0] + 60):
+            # print(midi[j-1][0], " ", melody[-1][0] + 60)
+            print("WRONG")
+          results.append(((midi[j-1][1]-startTime)/1000000000, numMistakes))
 
+    print(results)
+
+    sheet.cell(startRow, subject*2 + session - 1).value = melodyNum
+    sheet.cell(startRow+1, subject*2 + session - 1).value = hapticsFirst
+  
     if len(results) == 0:
       continue
 
-    sweepResults = [a for a in results if a[2]]
-    noSweepResults = [a for a in results if not a[2]]
+    sheet.cell(startRow+2, subject*2 + session - 1).value = mean(a[0] for a in results)
+    sheet.cell(startRow+4, subject*2 + session - 1).value = mean(a[1] for a in results)
 
-    sheet.cell(startRow,   subject*2 + session - 1).value = mean(a[1] for a in results)
-    sheet.cell(startRow+1, subject*2 + session - 1).value = mean(a[1] for a in sweepResults)
-    sheet.cell(startRow+2, subject*2 + session - 1).value = mean(a[1] for a in noSweepResults)
-
-    sheet.cell(startRow+6, subject*2 + session - 1).value = mean(a[3] for a in results)
-    sheet.cell(startRow+7, subject*2 + session - 1).value = mean(a[3] for a in sweepResults)
-    sheet.cell(startRow+8, subject*2 + session - 1).value = mean(a[3] for a in noSweepResults)
-
-    for index, i in enumerate([results, sweepResults, noSweepResults]):
-      x = range(len(i))
-      y = [a[1] for a in i]
+    if len(results) > 1:
+      x = range(len(results))
+      y = [a[0] for a in results]
       line = np.polyfit(x, y, 1)
       y_line = x*line[0] + line[1]
-
       # Multiply slope by number of data points so it's more proportional
-      sheet.cell(startRow + 3 + index, subject*2 + session - 1).value = line[0]*(len(i)-1)
+      sheet.cell(startRow + 3, subject*2 + session - 1).value = line[0]*len(results)
 
       if willPlot:
         plt.plot(x, y_line, 1)
-        plt.plot([a[1] for a in i], label=subject)
+        plt.plot([a[0] for a in results], label=subject)
 
         plt.legend()
         plt.ylabel("Time")
-        plt.title(f"Time for {['results', 'sweepResults', 'noSweepResults'][index]}")
+        plt.title("Time")
         plt.show()
 
-      x = range(len(i))
-      y = [a[3] for a in i]
+      x = range(len(results))
+      y = [a[1] for a in results]
       line = np.polyfit(x, y, 1)
       y_line = x*line[0] + line[1]
-      sheet.cell(startRow + 9 + index, subject*2 + session - 1).value = line[0]*(len(i)-1)
+      sheet.cell(startRow + 5, subject*2 + session - 1).value = line[0]*len(results)
 
       if willPlot:
         plt.plot(x, y_line, 1)
-        plt.plot([a[3] for a in i], label=subject)
+        plt.plot([a[1] for a in results], label=subject)
 
         plt.legend()
         plt.ylabel("Mistakes")
-        plt.title(f"Mistakes for {['results', 'sweepResults', 'noSweepResults'][index]}")
+        plt.title("Mistakes")
         plt.show()
 
 workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
