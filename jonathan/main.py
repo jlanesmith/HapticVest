@@ -171,7 +171,7 @@ def startVibrations(keyNum, durationNum = 0):
   GVARS['hasStartedVibration'] = 0
   GVARS['vibrationStartTime'] = time.time_ns()
   if writeToFile:
-    f.write(f"Vibrate {keyNum},{durationNum} at {GVARS['vibrationStartTime']}\n")
+    f.write(f"Vibrate {keyNum},{durationNum} at {GVARS['vibrationStartTime']}, index {GVARS['melodyIndex']}\n")
   print(f"Vibrate {noteNames[keyNum%12]}: {keyNum},{durationNum}")
 
 def updateVibrations():
