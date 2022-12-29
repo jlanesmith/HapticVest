@@ -130,12 +130,12 @@ for subject in range(4,5): # 1 to 6
               numPlaybackControls = numPlaybackControls - 1 # There's a bug with this. numPlaybackControls is wrong
             j = j - 1
 
-        # The next code is me trying to figure out whether we've finished the melody or not
-        # TODO Instead of this gross code, check with melody number
+        # The next code is me trying to figure out whether we've finished the melody or not (it's wrong for subject 4 session 1)
+        # TODO Instead of this gross code, check with melody number for blind musicians
         # If the note is the final melody note, we've done at least enough vibrations, the next vibration doesn't happen for a while, and the next midi isn't pause (41) or if it is, it's a while before the pause
         isDone = True
         isDone = isDone and vibration[i][0] == melody[-1][0]
-        isDone = isDone and i >= len(melody) - 1     
+        isDone = isDone and i >= len(melody) - 1 # TODO change this to reset after each melody finishes     
         isDone = isDone and (i == len(vibration) - 1 or (vibration[i+1][1] - vibration[i][1])/1000000000 > speed/2.0*1.1) # Hopefully this works
         isDone = isDone and (j == len(midi) or (midi[j][0] != 41 or (midi[j][1]-vibration[i][1])/1000000000 > speed/2.0*1.1))
 

@@ -60,6 +60,10 @@ for subject in range(1,7): # 1 to 6
 
         text = f.readline()
 
+      if (subject == 1 and session == 2) or subject == 2 or subject == 3 or (subject == 4 and session == 1) \
+        or (subject == 5 and session == 1): # Before melody order got finalized
+        melodyNum = melodyNum - 1
+
       # Don't worry about the short beginning melodies
       if len(melody) < 12:
         continue
