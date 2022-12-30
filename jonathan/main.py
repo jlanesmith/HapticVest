@@ -23,16 +23,16 @@ from HapticVest.bhaptics import haptic_player
 player = haptic_player.HapticPlayer()
 
 # For melody, first number is note (low C = 0), second number is duration (quarter, half)
-# All melodies have 22 notes and 5 sweeps
+# All melodies have 22 notes and 3 octave indications (used to be 5 sweeps but I made it easier)
 melodies = [
-  [[0,0], [4,0], [9,0], [7,0], [5,1], [7,0], [4,0], [2,1], [11,0], [7,0], [12,1]],
-  # [[0,0], [7,0], [7,0], [5,0], [4,1], [12,1], [14,0], [17,0], [9,0], [11,0], [12,1]],
-  [[0,1], [4,0], [5,0], [7,1], [9,0], [7,0], [16,1], [14,0], [16,0], [12,1], [7,1], [9,0], [17,0], [14,0], [12,0], [11,1], [7,1], [12,0], [12,0], [14,0], [19,0], [12,1]],
-  [[0,0], [2,0], [4,0], [7,0], [12,1], [7,1], [9,0], [12,0], [14,0], [12,0], [16,1], [12,1], [17,0], [19,0], [21,0], [17,0], [16,1], [7,0], [9,0], [14,1], [16,1], [12,1]],
-  [[7,0], [12,0], [12,0], [7,0], [9,1], [7,1], [4,0], [2,0], [4,0], [7,0], [12,1], [16,1], [17,0], [19,0], [17,1], [16,0], [21,0], [19,1], [14,1], [9,0], [11,0], [12,1]],
-  [[4,0], [7,0], [12,1], [9,0], [5,0], [17,0], [19,0], [14,1], [19,1], [16,0], [14,0], [12,1], [21,0], [21,0], [17,0], [14,0], [16,1], [4,1], [5,0], [9,0], [7,1], [12,1]],
-  [[9,0], [4,0], [9,0], [11,0], [12,1], [16,1], [17,0], [14,0], [11,1], [9,0], [16,0], [21,1], [23,0], [19,0], [17,0], [14,0], [16,1], [9,1], [11,0], [17,0], [16,1], [21,1]],
-  [[4,0], [9,0], [11,0], [4,0], [12,1], [21,0], [16,0], [17,1], [19,0], [14,0], [16,1], [9,1], [11,1], [4,0], [4,0], [12,1], [17,0], [14,0], [7,1], [14,0], [16,0], [12,1]]      
+  [[0,0], [4,0], [9,0], [7,0], [5,1], [7,0], [4,0], [2,1], [11,0], [7,0], [12,1], [12,1], [9,0], [7,0], [7,0], [5,0], [4,1], [12,1], [14,0], [17,0], [9,0], [11,0], [12,1]],
+  # Real ones:
+  [[0,1], [4,0], [5,0], [7,1], [9,0], [7,0], [16,1], [14,0], [16,0], [12,1], [7,1], [9,0], [5,0], [9,0], [12,0], [11,1], [7,1], [12,0], [12,0], [14,0], [11,0], [12,1]], #123
+  [[0,0], [2,0], [4,0], [7,0], [12,1], [7,1], [9,0], [12,0], [14,0], [12,0], [16,1], [12,1], [17,0], [19,0], [21,0], [17,0], [16,1], [16,0], [17,0], [19,1], [11,1], [12,1]], #123
+  [[12,0], [11,0], [12,0], [7,0], [9,1], [7,1], [4,0], [2,0], [4,0], [7,0], [12,1], [16,1], [17,0], [19,0], [17,1], [16,0], [21,0], [19,1], [14,1], [9,0], [11,0], [12,1]], #123
+  [[4,0], [7,0], [12,1], [9,0], [5,0], [17,0], [19,0], [14,1], [19,1], [16,0], [14,0], [12,1], [21,0], [21,0], [17,0], [14,0], [16,1], [12,1], [11,0], [12,0], [14,1], [12,1]], #123
+  [[9,0], [4,0], [12,0], [11,0], [9,1], [16,1], [14,0], [16,0], [17,1], [16,0], [14,0], [12,1], [11,0], [9,0], [11,0], [4,0], [5,1], [14,1], [16,0], [17,0], [16,1], [21,1]], #123
+  [[9,0], [4,0], [11,0], [4,0], [12,1], [16,0], [21,0], [17,1], [14,0], [19,0], [16,1], [9,1], [11,1], [4,0], [4,0], [12,1], [17,0], [14,0], [19,1], [14,0], [16,0], [12,1]] #123    
 ]
 melodyIndex = 1
 melodyChunk = 0
@@ -44,7 +44,7 @@ melodyChunk = 0
 # 5 first  4 bars
 # 6 second 4 bars
 
-secondsPerBar = 7
+secondsPerBar = 3
 mode = 5
 # 0 is just learning the notes
 # 1 is testing with random individual notes
@@ -53,8 +53,8 @@ mode = 5
 # 4 is playback of prerecorded melody without haptics
 # 5 is playback of prerecorded melody with haptics
 # 6 is just logging the data (for initial test)
-# 7 is testing with a precorded melody but no haptics! It just waits for you to play
-# 8 is testing with a prerecorded melody without haptics, with audio
+# 7 is evaluating with a precorded melody but no haptics! It just waits for you to play
+# 8 is testing with a prerecorded melody without haptics, with audio (if people have trouble finding the notes)
 
 isPiano = True # Whether using piano keyboard or computer keyboard
 writeToFile = True
@@ -88,17 +88,21 @@ validNotes = [0,2,4,5,7,9,11,12,14,16,17,19,21,23] # not 24 at the end, just for
 pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 
 # backPointPins = [[0], [8], [16,17], [9,10], [3], [11], [18,19]] # Backwards N
-backPointPins = [[0], [8], [16,17], [9,10], [18,19], [11], [3]] # Edwin's W
+# backPointPins = [[0], [8], [16,17], [9,10], [18,19], [11], [3]] # Edwin's W
+backPointPins = [[16,17], [8], [0], [9,10], [18,19], [11], [3]] # Forwards N
 
-rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19]
+isBrailleOctaves = True
+octavePins = [[4,8,12],[7,11,15]]
+octaveIntensity = 60
+rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19] # For old octave sweep system
 
-rangeTime = 400 # time to complete sweep if changing octaves
+octaveTime = 400 if isBrailleOctaves else 700 # time to complete octave sweep, or to vibrate which octave it is
 durations =  [int(i * secondsPerBar) for i in [250, 500, 1000]] # Quarter note, half note, whole note
-backPointIntensity = [70, 100] # 1 motor, 2 motors
+backPointIntensity = [40, 40] # 1 motor, 2 motors
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
-convertToWhiteNote = [0,0,1,2,2,3,3,4,4,5,6,6]
+convertToWhiteNote = [0,0,1,2,2,3,3,4,4,5,6,6,7,7,8,9,9,10,10,11,12,12,13,13]
 noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 
@@ -125,7 +129,7 @@ GVARS = {
   'lastNoteTime': 0, # time since last melody note was played
   'isGuessed': True, # Whether the correct note has been guessed yet
 
-  'keyNum': None, # Number of note to be vibrated, between 0 and 24
+  'keyNum': None, # Number of note to be vibrated, between 0 and 23
   'previousKeyNum': None, # Key num of the previous note, used for beeping during mode 5
   'durationNum': 0, # See `durations` array
   'whiteNote': None, # 0-6, refers to which "white note" the note is (E.g. for C#, it's C)
@@ -158,13 +162,27 @@ def startVibrations(keyNum, durationNum = 0):
   resetVibrations()
   GVARS['durationNum'] = durationNum
   GVARS['whiteNote'] = convertToWhiteNote[keyNum%12]
+  if GVARS['keyNum'] == None:
+    GVARS['newOctave'] = int(keyNum/12) # 0 for low octave, 1 for high octave
   if GVARS['keyNum'] != None and (GVARS['isGuessed'] or mode == 4 or mode == 5):
-    if int(int(GVARS['keyNum'])/12) > int(keyNum/12):
-      GVARS['newOctave'] = -1
-    elif int(int(GVARS['keyNum'])/12) < int(keyNum/12):
-      GVARS['newOctave'] = 1 
+    if isBrailleOctaves:
+      interval = abs(convertToWhiteNote[int(GVARS['keyNum'])]-convertToWhiteNote[int(keyNum)])
+      if interval > 4: # 6th and more
+        GVARS['newOctave'] = int(keyNum/12) # 0 for low octave, 1 for high octave 
+      elif interval in [3,4]: # 4th or 5th
+        if int(int(GVARS['keyNum'])/12) != int(keyNum/12):
+          GVARS['newOctave'] = int(keyNum/12) # 0 for low octave, 1 for high octave
+        else:
+          GVARS['newOctave'] = None
+      else:
+        GVARS['newOctave'] = None
     else:
-      GVARS['newOctave'] = 0
+      if int(int(GVARS['keyNum'])/12) > int(keyNum/12):
+        GVARS['newOctave'] = -1
+      elif int(int(GVARS['keyNum'])/12) < int(keyNum/12):
+        GVARS['newOctave'] = 1 
+      else:
+        GVARS['newOctave'] = None
   GVARS['previousKeyNum'] = GVARS['keyNum']
   GVARS['keyNum'] = keyNum
   GVARS['moveRangePhase'] = 0
@@ -176,19 +194,34 @@ def startVibrations(keyNum, durationNum = 0):
 
 def updateVibrations():
   if GVARS['whiteNote'] != None:
-    moveRange()
+    if isBrailleOctaves:
+      vibrateFrontPoint()
+    else:
+      moveRange()
     vibrateBackPoint()
 
+# For old way of indicating octaves
 def moveRange():
-  if (GVARS['newOctave'] != 0 and GVARS['moveRangePhase'] != 4 and time.time_ns() - GVARS['vibrationStartTime'] >= rangeTime/4*GVARS['moveRangePhase'] * 1000000):
+  if (GVARS['newOctave'] != None and GVARS['moveRangePhase'] != 4 and time.time_ns() - GVARS['vibrationStartTime'] >= octaveTime/4*GVARS['moveRangePhase'] * 1000000):
     pinIndex = rangePins[int(GVARS['moveRangePhase'])] if GVARS['newOctave'] == 1 else rangePins[3 - int(GVARS['moveRangePhase'])]
-    player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(rangeTime/4))
+    player.submit_dot("range" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": 100}], int(octaveTime/4))
     if (GVARS['moveRangePhase'] == 0):
       f.write(f"Sweep {'Right' if GVARS['newOctave'] == 1 else 'Left'} at {time.time_ns()}\n")
     GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
 
+# For Braille octave notation
+def vibrateFrontPoint():
+  numPhase = len(octavePins[0])
+  if (GVARS['newOctave'] != None and GVARS['moveRangePhase'] != numPhase and time.time_ns() - GVARS['vibrationStartTime'] >= octaveTime/numPhase*GVARS['moveRangePhase'] * 1000000):
+    pinIndex = octavePins[int(GVARS['newOctave'])][int(GVARS['moveRangePhase'])]
+    player.submit_dot("octave" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": octaveIntensity}], int(octaveTime/numPhase))
+    if (GVARS['moveRangePhase'] == 0):
+      print(f"Octave {'Top' if GVARS['newOctave'] == 1 else 'Bottom'}")
+      f.write(f"Octave {'Top' if GVARS['newOctave'] == 1 else 'Bottom'} at {time.time_ns()}\n")
+    GVARS['moveRangePhase'] = GVARS['moveRangePhase'] + 1
+
 def vibrateBackPoint():
-  timeToWait = rangeTime if (GVARS['newOctave'] != 0 or mode != 0) else 0 # Go immediately if mode == 0 and no sweep for the range
+  timeToWait = octaveTime if (GVARS['newOctave'] != None or mode != 0) else 0 # Go immediately if mode == 0 and no sweep for the range
   if (GVARS['hasStartedVibration'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= timeToWait * 1000000):
     for i in backPointPins[GVARS['whiteNote']]:
       player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['whiteNote']]) > 1]}], durations[GVARS['durationNum']])
@@ -362,6 +395,8 @@ def midi_input_main(device_id=None):
     # Code for when a piano key is pressed
     events = event_get()
     for e in events:
+      if e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data2 == 0: # Note being raised up
+        continue
       if writeToFile and e.type in [pygame.midi.MIDIIN] and e.status == 144:
         f.write(f"MIDI {e.data1} at {time.time_ns()}\n")
 
