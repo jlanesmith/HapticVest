@@ -34,8 +34,8 @@ melodies = [
   [[9,0], [4,0], [12,0], [11,0], [9,1], [16,1], [14,0], [16,0], [17,1], [16,0], [14,0], [12,1], [11,0], [9,0], [11,0], [4,0], [5,1], [14,1], [16,0], [17,0], [16,1], [21,1]], #123
   [[9,0], [4,0], [11,0], [4,0], [12,1], [16,0], [21,0], [17,1], [14,0], [19,0], [16,1], [9,1], [11,1], [4,0], [4,0], [12,1], [17,0], [14,0], [19,1], [14,0], [16,0], [12,1]] #123    
 ]
-melodyIndex = 1
-melodyChunk = 0
+melodyIndex = 6
+melodyChunk = 2
 # 0 full
 # 1 first  2 bars
 # 2 second 2 bars
@@ -44,8 +44,8 @@ melodyChunk = 0
 # 5 first  4 bars
 # 6 second 4 bars
 
-secondsPerBar = 3
-mode = 5
+secondsPerBar = 2
+mode = 2
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -79,7 +79,6 @@ def makeMelody():
     endIndex = len(melodies[melodyIndex])
   return melodies[melodyIndex][startIndex:endIndex]
 melody = makeMelody()
-print(melody)
 
 totalNotes = len(melody)
 totalBeats = sum(beatLegend[melody[i][1]] for i in range(totalNotes))
@@ -98,7 +97,9 @@ rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19] # For old oc
 
 octaveTime = 400 if isBrailleOctaves else 700 # time to complete octave sweep, or to vibrate which octave it is
 durations =  [int(i * secondsPerBar) for i in [250, 500, 1000]] # Quarter note, half note, whole note
-backPointIntensity = [40, 40] # 1 motor, 2 motors
+
+# backPointIntensity = [40, 40] # 1 motor, 2 motors
+backPointIntensity = [40, 40, 20, 40, 40, 40, 20] # cc, d, e, f, gg, a, b
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
@@ -224,7 +225,8 @@ def vibrateBackPoint():
   timeToWait = octaveTime if (GVARS['newOctave'] != None or mode != 0) else 0 # Go immediately if mode == 0 and no sweep for the range
   if (GVARS['hasStartedVibration'] == 0 and time.time_ns() - GVARS['vibrationStartTime'] >= timeToWait * 1000000):
     for i in backPointPins[GVARS['whiteNote']]:
-      player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['whiteNote']]) > 1]}], durations[GVARS['durationNum']])
+      # player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[len(backPointPins[GVARS['whiteNote']]) > 1]}], durations[GVARS['durationNum']])
+      player.submit_dot(i, "VestBack", [{"index": i, "intensity": backPointIntensity[GVARS['whiteNote']]}], durations[GVARS['durationNum']])
     GVARS['hasStartedVibration'] = 1
 
 def resetVibrations():
