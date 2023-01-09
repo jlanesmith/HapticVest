@@ -34,8 +34,8 @@ melodies = [
   [[9,0], [4,0], [12,0], [11,0], [9,1], [16,1], [14,0], [16,0], [17,1], [16,0], [14,0], [12,1], [11,0], [9,0], [11,0], [4,0], [5,1], [14,1], [16,0], [17,0], [16,1], [21,1]], #123
   [[9,0], [4,0], [11,0], [4,0], [12,1], [16,0], [21,0], [17,1], [14,0], [19,0], [16,1], [9,1], [11,1], [4,0], [4,0], [12,1], [17,0], [14,0], [19,1], [14,0], [16,0], [12,1]] #123    
 ]
-melodyIndex = 6
-melodyChunk = 2
+melodyIndex = 1
+melodyChunk = 0
 # 0 full
 # 1 first  2 bars
 # 2 second 2 bars
@@ -44,8 +44,8 @@ melodyChunk = 2
 # 5 first  4 bars
 # 6 second 4 bars
 
-secondsPerBar = 2
-mode = 2
+secondsPerBar = 4
+mode = 1
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -95,11 +95,11 @@ octavePins = [[4,8,12],[7,11,15]]
 octaveIntensity = 60
 rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19] # For old octave sweep system
 
-octaveTime = 400 if isBrailleOctaves else 700 # time to complete octave sweep, or to vibrate which octave it is
+octaveTime = 600 if isBrailleOctaves else 700 # time to complete octave sweep, or to vibrate which octave it is
 durations =  [int(i * secondsPerBar) for i in [250, 500, 1000]] # Quarter note, half note, whole note
 
 # backPointIntensity = [40, 40] # 1 motor, 2 motors
-backPointIntensity = [40, 40, 20, 40, 40, 40, 20] # cc, d, e, f, gg, a, b
+backPointIntensity = [40, 40, 30, 40, 40, 40, 30] # cc, d, e, f, gg, a, b
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
@@ -214,6 +214,10 @@ def moveRange():
 def vibrateFrontPoint():
   numPhase = len(octavePins[0])
   if (GVARS['newOctave'] != None and GVARS['moveRangePhase'] != numPhase and time.time_ns() - GVARS['vibrationStartTime'] >= octaveTime/numPhase*GVARS['moveRangePhase'] * 1000000):
+    if (GVARS['newOctave'] == None or GVARS['moveRangePhase'] == None):
+      print(f"Hit the bug, octave: {GVARS['newOctave']}, moveRangePhase: {GVARS['moveRangePhase']}")
+      f.write(f"Hit the bug, octave: {GVARS['newOctave']}, moveRangePhase: {GVARS['moveRangePhase']} at {time.time_ns()}\n")
+      return
     pinIndex = octavePins[int(GVARS['newOctave'])][int(GVARS['moveRangePhase'])]
     player.submit_dot("octave" + str(GVARS['moveRangePhase']), "VestFront", [{"index": pinIndex, "intensity": octaveIntensity}], int(octaveTime/numPhase))
     if (GVARS['moveRangePhase'] == 0):
