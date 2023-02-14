@@ -8,17 +8,14 @@ import json
 mode = 3
 willPlot = False
 
-startRow = 33
-
-workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
-workbook.active = 0
+startRow = 39
+workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
 sheet = workbook.active
 
-for subject in range(1,12): # 1 to 11
-  maxSession = 4 if subject != 11 else 2 # For Dad lol
-  for session in range(1,maxSession): # 1 to 3
+for subject in range(1,7): # 1 to 6
+  for session in range(1,3): # 1 to 2
 
-    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}")
+    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
     files = [f for f in allFiles if f[-1] == str(mode)]
 
     # Find whether haptics is first or not
@@ -34,7 +31,7 @@ for subject in range(1,12): # 1 to 11
     # time, num mistakes
     results = []
     for fileName in files:
-      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{fileName}", "r")
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{fileName}", "r")
 
       vibration = []
       midi = []
@@ -50,9 +47,11 @@ for subject in range(1,12): # 1 to 11
             alreadyVibrated = False
         elif "Vibrate" in text:
           if not (alreadyVibrated and len(vibration) > 0): # Skip if it's a repeat vibration
-            extraSpace = 0 if text[9] == "," else 1 # For if note is double digits
-            vibration.append([int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace]), int(text[(-3):])]) # Note, time, duration, melodyIndex
+            extraSpace = 0 if text[9] == "," else 1
+            vibration.append((int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace])))
           alreadyVibrated = True
+        elif "Computer Key.space" in text:
+          midi.append((41, int(text[22:41])))
         elif "Computer '\\\\'" in text:
           midi.append((41, int(text[17:36])))
         elif "Melody" in text:
@@ -60,58 +59,82 @@ for subject in range(1,12): # 1 to 11
           melody = json.loads(text[10:])
 
         text = f.readline()
-      
-      if len(vibration) == 0:
+
+      if (subject == 1 and session == 2) or subject == 2 or subject == 3 or (subject == 4 and session == 1) \
+        or (subject == 5 and session == 1): # Before melody order got finalized
+        melodyNum = melodyNum - 1
+
+      # Don't worry about the short beginning melodies
+      if len(melody) < 12:
         continue
 
       i = 0 # Counter for Vibration data
       j = 0 # Counter for MIDI data
-
       startTime = vibration[0][1]
       numMistakes = 0
       melodyNoteIndex = 0
 
       for i in range(len(vibration)):
-        melodyNoteIndex = vibration[i][3]
         foundNote = False
         while (not foundNote and j < len(midi)):
           if vibration[i][0] == midi[j][0] - 60 and midi[j][1] > vibration[i][1]: # If the correct note
             foundNote = True
+            melodyNoteIndex = melodyNoteIndex + 1
           elif midi[j][0] == 41 or midi[j][0] == 36:
             if melodyNoteIndex == len(melody) or midi[j][0] == 36:
+              melodyNoteIndex = 0
               startTime = vibration[i][1]
               numMistakes = 0
           else:
             numMistakes = numMistakes + 1
           j = j + 1
-        if melodyNoteIndex == len(melody)-1:
+        if melodyNoteIndex == len(melody):
+          if (midi[j-1][0] != melody[-1][0] + 60):
+            # print(midi[j-1][0], " ", melody[-1][0] + 60)
+            print("WRONG")
           results.append(((midi[j-1][1]-startTime)/1000000000, numMistakes))
 
     print(results)
 
-    sheet.cell(startRow, subject*3 + session - 2).value = melodyNum
-    sheet.cell(startRow+1, subject*3 + session - 2).value = "Yes" if hapticsFirst else "No"
+    sheet.cell(startRow, subject*2 + session - 1).value = melodyNum
+    sheet.cell(startRow+1, subject*2 + session - 1).value = hapticsFirst
   
     if len(results) == 0:
       continue
 
-    sheet.cell(startRow+2, subject*3 + session - 2).value = mean(a[0] for a in results)
-    sheet.cell(startRow+3, subject*3 + session - 2).value = mean(a[1] for a in results)
-     
-    if willPlot:
-      plt.plot([a[0] for a in results], label=subject)
+    sheet.cell(startRow+2, subject*2 + session - 1).value = mean(a[0] for a in results)
+    sheet.cell(startRow+4, subject*2 + session - 1).value = mean(a[1] for a in results)
 
-      plt.legend()
-      plt.ylabel("Time")
-      plt.title("Time")
-      plt.show()
+    if len(results) > 1:
+      x = range(len(results))
+      y = [a[0] for a in results]
+      line = np.polyfit(x, y, 1)
+      y_line = x*line[0] + line[1]
+      # Multiply slope by number of data points so it's more proportional
+      sheet.cell(startRow + 3, subject*2 + session - 1).value = line[0]*len(results)
 
-    if willPlot:
-      plt.plot([a[1] for a in results], label=subject)
+      if willPlot:
+        plt.plot(x, y_line, 1)
+        plt.plot([a[0] for a in results], label=subject)
 
-      plt.legend()
-      plt.ylabel("Mistakes")
-      plt.title("Mistakes")
-      plt.show()
+        plt.legend()
+        plt.ylabel("Time")
+        plt.title("Time")
+        plt.show()
 
-workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
+      x = range(len(results))
+      y = [a[1] for a in results]
+      line = np.polyfit(x, y, 1)
+      y_line = x*line[0] + line[1]
+      sheet.cell(startRow + 5, subject*2 + session - 1).value = line[0]*len(results)
+
+      if willPlot:
+        plt.plot(x, y_line, 1)
+        plt.plot([a[1] for a in results], label=subject)
+
+        plt.legend()
+        plt.ylabel("Mistakes")
+        plt.title("Mistakes")
+        plt.show()
+
+workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")

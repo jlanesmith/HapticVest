@@ -45,21 +45,37 @@ import json
 mode = 5
 willPlot = False
 
-startRow = 47
-workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
+startRow = 39
+
+workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
+workbook.active = 0
 sheet = workbook.active
 
-for subject in range(4,5): # 1 to 6
-  for session in range(1,3): # 1 to 2
+for subject in range(1,11): # 1 to 11
+  maxSession = 4 if subject != 11 else 2 # For Dad lol
+  for session in range(1,maxSession): # 1 to 3
 
-    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}")
+    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}")
     files = [f for f in allFiles if f[-1] == str(mode)]
 
-    # TODO Get time when they first started mode 3
+    # Find when mode 3 started
+    mode3Start = 0
+    mode3Files = [f for f in allFiles if f[-1] == str(3)]
+    for mode3File in mode3Files:
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{mode3File}", "r")
+      text = f.readline()
+      while text and mode3Start == 0:
+        if "Vibrate" in text:
+          extraSpace = 0 if text[9] == "," else 1
+          mode3Start = int(text[(15+extraSpace):(34+extraSpace)])
+        else:
+          text = f.readline()
+      if mode3Start != 0:
+        break
 
     results = [] # speed, mistakes, playback controls
     for fileName in files:
-      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Subject {subject}\\Session {session}\\{fileName}", "r")
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{fileName}", "r")
 
       vibration = []
       midi = []
@@ -73,9 +89,7 @@ for subject in range(4,5): # 1 to 6
           midi.append((int(text[5:7]), int(text[11:30])))
         elif "Vibrate" in text:
           extraSpace = 0 if text[9] == "," else 1
-          vibration.append((int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace])))
-        elif "Computer Key.space" in text:
-          midi.append((41, int(text[22:41])))
+          vibration.append([int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace]), int(text[(-3):])]) # Note, time, duration, melodyIndex
         elif "Computer '\\\\'" in text:
           midi.append((41, int(text[17:36])))
         elif "Melody" in text:
@@ -92,6 +106,7 @@ for subject in range(4,5): # 1 to 6
       numPlaybackControls = 0
 
       for i in range(len(vibration)):
+
         foundNote = False
 
         # Move j to correct index, if it's currently too far behind
@@ -126,35 +141,31 @@ for subject in range(4,5): # 1 to 6
         if not foundNote:
           numMistakes = numMistakes + 1 # A mistake for not finding the correct note
           while (j > previousJ):
+            j = j - 1
             if midi[j][0] in [38, 40, 41]: # Not including restart melody or play
               numPlaybackControls = numPlaybackControls - 1 # There's a bug with this. numPlaybackControls is wrong
-            j = j - 1
 
-        # The next code is me trying to figure out whether we've finished the melody or not (it's wrong for subject 4 session 1)
-        # TODO Instead of this gross code, check with melody number for blind musicians
-        # If the note is the final melody note, we've done at least enough vibrations, the next vibration doesn't happen for a while, and the next midi isn't pause (41) or if it is, it's a while before the pause
-        isDone = True
-        isDone = isDone and vibration[i][0] == melody[-1][0]
-        isDone = isDone and i >= len(melody) - 1 # TODO change this to reset after each melody finishes     
-        isDone = isDone and (i == len(vibration) - 1 or (vibration[i+1][1] - vibration[i][1])/1000000000 > speed/2.0*1.1) # Hopefully this works
-        isDone = isDone and (j == len(midi) or (midi[j][0] != 41 or (midi[j][1]-vibration[i][1])/1000000000 > speed/2.0*1.1))
-
-        if (isDone):
-          results.append((speed, numMistakes, numPlaybackControls-1)) # Subtract 1 because they all start with 1
+        if (vibration[i][3] == len(melody) - 1): # If finished melody
+          timeToLearn = vibration[i][1] - mode3Start
+          results.append((speed, numMistakes, numPlaybackControls-1, timeToLearn/1000000000/60)) # Subtract 1 because they all start with 1
           numMistakes = 0
           numPlaybackControls = 0
 
-    print(results)
+    if len(results) == 0:
+      continue
 
-    # From here, get the best result, calculate the total time from when they first started with mode 3, and output values
+    bestScore = 10000 # Arbitarily large number, we're trying to find the lowest score
+    bestResult = results[0]
+    for result in results:
+      score = result[0]*50 + result[1]*10 + result[3]
+      if score < bestScore:
+        bestScore = score
+        bestResult = result
+
+    sheet.cell(startRow,   subject*3 + session - 2).value = bestResult[0]
+    sheet.cell(startRow+1, subject*3 + session - 2).value = bestResult[1]
+    sheet.cell(startRow+2, subject*3 + session - 2).value = bestResult[2]
+    sheet.cell(startRow+3, subject*3 + session - 2).value = bestResult[3]
 
 
-
-    # sheet.cell(startRow, subject*2 + session - 1).value = melodyNum
-    # sheet.cell(startRow+1, subject*2 + session - 1).value = hapticsFirst
-    # if len(results) == 0:
-    #   continue
-    # sheet.cell(startRow+2, subject*2 + session - 1).value = mean(a[0] for a in results)
-    # sheet.cell(startRow+4, subject*2 + session - 1).value = mean(a[1] for a in results)
-
-# workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\McGill Study\\Analysis.xlsx")
+workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
