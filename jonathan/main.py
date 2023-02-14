@@ -45,7 +45,7 @@ melodyChunk = 0
 # 6 second 4 bars
 
 secondsPerBar = 4
-mode = 1
+mode = 0
 # 0 is just learning the notes
 # 1 is testing with random individual notes
 # 2 is testing with a randomly generated melody
@@ -91,15 +91,15 @@ pins = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 backPointPins = [[16,17], [8], [0], [9,10], [18,19], [11], [3]] # Forwards N
 
 isBrailleOctaves = True
-octavePins = [[4,8,12],[7,11,15]]
-octaveIntensity = 60
+octavePins =  [[4,8,12],[7,11,15]] # [[4],[7]] # just one for karen
+octaveIntensity = 60 # normally 60 but changed to 40 for karen
 rangePins = [8,9,10,11] # [12,13,14,15] # [0,1,2,3] # [16,17,18,19] # For old octave sweep system
 
 octaveTime = 600 if isBrailleOctaves else 700 # time to complete octave sweep, or to vibrate which octave it is
 durations =  [int(i * secondsPerBar) for i in [250, 500, 1000]] # Quarter note, half note, whole note
 
 # backPointIntensity = [40, 40] # 1 motor, 2 motors
-backPointIntensity = [40, 40, 30, 40, 40, 40, 30] # cc, d, e, f, gg, a, b
+backPointIntensity = [50, 40, 30, 40, 50, 40, 30] # cc, d, e, ff, gg, a, b
 
 keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']','\\']
 playbackKeys = ['z', 'x', 'c', 'v', 'b']
@@ -411,7 +411,7 @@ def midi_input_main(device_id=None):
       if e.type in [pygame.midi.MIDIIN] and e.data1 == 108: # C8
         resetVibrations()
         going = False
-      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 <= 84: # C4 to C6
+      elif e.type in [pygame.midi.MIDIIN] and e.status == 144 and e.data1 >= 60 and e.data1 < 84: # C4 to C6
         if mode == 0:
           startVibrations(e.data1 - 60)
         elif mode == 1:

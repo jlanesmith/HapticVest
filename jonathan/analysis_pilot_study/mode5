@@ -1,0 +1,171 @@
+# Previous ideas:
+# For each melody attempt: 
+# How far into the melody we go (cause some people restart a lot)
+# Time to complete melody (bc of playback controls)
+# Number of times using playback controls
+# Average time between hearing and playing
+# Missed notes
+# Speed
+
+
+# For each melody attempt (before finishing or restarting), get the total time, total mistakes, how far into the melody they went
+
+# Average time / notes
+# Slope time / notes
+# Average mistakes / notes
+# Slope mistakes / notes
+# ^Actually the above probably aren't necessary
+
+# Fastest speed with <5 mistakes (Maybe not 5, figure this out later)
+# Number of mistakes at aforementioned speed
+# Number of playback controls used at aforementioned speed
+
+# Note: perhaps playback controls will mess things up for calculating the fastest speed
+
+
+# New plan:
+# For the BEST ATTEMPT (figure out how to choose this later)
+# speed
+# mistakes
+# playback controls
+# time to learn how to play it like this
+
+# Realistically, the best attempt will probably end up being the last attempt
+# Perhaps do it as whichever has the lowest speed*(mistakes+2)
+# For now, just print out all of the full attempts, and look at them and decide if there's any tough choices
+
+
+import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+from statistics import mean
+from os import listdir
+import numpy as np
+import json
+
+mode = 5
+willPlot = False
+
+startRow = 39
+
+workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
+workbook.active = 0
+sheet = workbook.active
+
+for subject in range(1,11): # 1 to 11
+  maxSession = 4 if subject != 11 else 2 # For Dad lol
+  for session in range(1,maxSession): # 1 to 3
+
+    allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}")
+    files = [f for f in allFiles if f[-1] == str(mode)]
+
+    # Find when mode 3 started
+    mode3Start = 0
+    mode3Files = [f for f in allFiles if f[-1] == str(3)]
+    for mode3File in mode3Files:
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{mode3File}", "r")
+      text = f.readline()
+      while text and mode3Start == 0:
+        if "Vibrate" in text:
+          extraSpace = 0 if text[9] == "," else 1
+          mode3Start = int(text[(15+extraSpace):(34+extraSpace)])
+        else:
+          text = f.readline()
+      if mode3Start != 0:
+        break
+
+    results = [] # speed, mistakes, playback controls
+    for fileName in files:
+      f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{fileName}", "r")
+
+      vibration = []
+      midi = []
+      melodyNum = 0
+      melody = []
+      speed = 0
+
+      text = f.readline()
+      while text:
+        if "MIDI" in text:
+          midi.append((int(text[5:7]), int(text[11:30])))
+        elif "Vibrate" in text:
+          extraSpace = 0 if text[9] == "," else 1
+          vibration.append([int(text[8:(9 + extraSpace)]), int(text[(15+extraSpace):(34+extraSpace)]), int(text[10 + extraSpace]), int(text[(-3):])]) # Note, time, duration, melodyIndex
+        elif "Computer '\\\\'" in text:
+          midi.append((41, int(text[17:36])))
+        elif "Melody" in text:
+          melodyNum = int(text[7])
+          melody = json.loads(text[10:])
+        elif "Speed" in text:
+          speed = float(text[6:])
+
+        text = f.readline()
+
+      i = 0 # Counter for Vibration data
+      j = 0 # Counter for MIDI data
+      numMistakes = 0
+      numPlaybackControls = 0
+
+      for i in range(len(vibration)):
+
+        foundNote = False
+
+        # Move j to correct index, if it's currently too far behind
+        while (j < len(midi) and midi[j][1] <= vibration[i][1]):
+          if midi[j][0] in [38, 40, 41]: # Not including restart melody or play
+            numPlaybackControls = numPlaybackControls + 1
+          elif midi[j][0] == 36:
+            numMistakes = 0
+            numPlaybackControls = 0
+          j = j + 1
+
+        previousJ = j # j before we start searching through midi notes
+        tempMistakes = 0 # Only apply mistakes once we know that we do eventually find the correct note
+
+        # Go through midi notes and see if we play the correct note, until we're 4 seconds in the future 
+        # (or we find the correct note)
+        while (j < len(midi) and (i == len(vibration)-1 or midi[j][1] <= vibration[i][1] + 1000000000*4) and not foundNote):
+          if vibration[i][0] == midi[j][0] - 60 and midi[j][1] > vibration[i][1]: # If the correct note
+            numMistakes = numMistakes + tempMistakes
+            foundNote = True
+          elif midi[j][0] in [38, 40, 41]: # Not including restart melody or play
+            numPlaybackControls = numPlaybackControls + 1
+          elif midi[j][0] == 36: # Restart melody
+            numMistakes = 0
+            numPlaybackControls = 0
+            foundNote = True # Time to move on
+          else:
+            tempMistakes = tempMistakes + 1
+          j = j + 1
+
+        # If we don't play the correct note, move j back to where it used to be
+        if not foundNote:
+          numMistakes = numMistakes + 1 # A mistake for not finding the correct note
+          while (j > previousJ):
+            j = j - 1
+            if midi[j][0] in [38, 40, 41]: # Not including restart melody or play
+              numPlaybackControls = numPlaybackControls - 1 # There's a bug with this. numPlaybackControls is wrong
+
+        if (vibration[i][3] == len(melody) - 1): # If finished melody
+          timeToLearn = vibration[i][1] - mode3Start
+          results.append((speed, numMistakes, numPlaybackControls-1, timeToLearn/1000000000/60)) # Subtract 1 because they all start with 1
+          numMistakes = 0
+          numPlaybackControls = 0
+
+    if len(results) == 0:
+      continue
+
+    bestScore = 10000 # Arbitarily large number, we're trying to find the lowest score
+    bestResult = results[0]
+    for result in results:
+      score = result[0]*50 + result[1]*10 + result[3]
+      if score < bestScore:
+        bestScore = score
+        bestResult = result
+
+    sheet.cell(startRow,   subject*3 + session - 2).value = bestResult[0]
+    sheet.cell(startRow+1, subject*3 + session - 2).value = bestResult[1]
+    sheet.cell(startRow+2, subject*3 + session - 2).value = bestResult[2]
+    sheet.cell(startRow+3, subject*3 + session - 2).value = bestResult[3]
+
+
+workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")

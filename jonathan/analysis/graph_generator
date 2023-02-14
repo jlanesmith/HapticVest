@@ -1,0 +1,85 @@
+import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+import pandas as pd
+import numpy as np
+import matplotlib.ticker as ticker
+
+workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx", data_only=True)
+workbook.active = 0
+sheet = workbook.active
+
+numParticipants = 10 # 8
+startColumn = 2 # 8
+
+
+# Mode 1&2 timing, box plot
+
+df_12 = [[None,None],[None,None]]
+fig_12, axes_12 = plt.subplots(nrows=2, ncols=2)
+fig_12.tight_layout(pad=3.0)
+for mode in range(2): # Mode 1, Mode 2
+  for category in range(2): # time, mistakes
+    data_12 = [[] for i in range(numParticipants)]
+    for i in range(3): # For each session
+      for j in range(numParticipants) if mode == 0 else [0,1,2,3,4,5,7,8,9]:
+        row = 13 + mode*10 + category*4
+        column = startColumn + i + j*3
+        data_12[j].append(sheet[f"{get_column_letter(column)}{row}"].value)
+    df_12[mode][category] = pd.DataFrame(data_12, columns=["Session 1", "Session 2", "Session 3"])
+    ax = df_12[mode][category].plot.box(ax=axes_12[mode,category])
+    ax.set_ylabel("Time (s)" if category == 0 else "Number of Mistakes")
+    if mode == 1 and category == 1:
+      ax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+
+
+# Haptic score line graph
+
+data_line = [[] for i in range(3)]
+for val in range(3*numParticipants):
+    row = 58
+    column = startColumn + val
+    data_line[val%3].append(sheet[f"{get_column_letter(column)}{row}"].value)
+df_line = pd.DataFrame(data_line, columns=[f"P{i}" for i in range(1,11)], index=["Session 1", "Session 2", "Session 3"])
+ax = df_line.plot(marker='.')
+ax.set_ylabel("Time (s)" if category == 0 else "Haptic score")
+ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+
+
+# Haptic vs audio scatterplot
+
+data_scatter = [[] for i in range(numParticipants)]
+for val in range(numParticipants):
+  if val == 6:
+    continue
+  column = startColumn + val*3
+  data_scatter[val].append(sheet[f"{get_column_letter(column)}{56}"].value)
+  data_scatter[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
+df_scatter = pd.DataFrame(data_scatter, columns=["Audio score", "Haptic score"])
+ax = df_scatter.plot.scatter(x="Audio score",y="Haptic score")
+
+
+# Box plot for timing and mistakes of notes
+workbook.active = 1
+sheet = workbook.active
+noteNames = ["C", "D", "E", "F", "G", "A", "B"]
+df_notes = [[None,None]]
+fig_notes, axes_notes = plt.subplots(nrows=1, ncols=2)
+fig_notes.tight_layout(pad=3.0)
+data_notes = [[[] for i in range(7)] for j in range(2)] 
+for category in range(2): # Time, mistakes
+  for row_iter in range(7):
+    for col_iter in range(numParticipants):
+      if col_iter in [0,1,6]:
+        continue # skip Karen, too much of an outlier and Michael C and Ioana, used a different mapping
+      row = 4 + row_iter + category*8
+      column = 2 + col_iter
+      data_notes[category][row_iter].append(sheet[f"{get_column_letter(column)}{row}"].value)
+  data_notes[category] = pd.DataFrame(data_notes[category], index=noteNames)
+  ax = data_notes[category].transpose().plot.box(ax=axes_notes[category])
+  ax.set_ylabel("Time (s)" if category == 0 else "Number of Mistakes")
+
+plt.show()
+

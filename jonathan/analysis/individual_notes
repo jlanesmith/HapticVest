@@ -3,26 +3,25 @@ from openpyxl import load_workbook
 from statistics import mean
 from os import listdir
 import numpy as np
+from collections import defaultdict
 
-mode = 2
 
-startRow = 13 if mode == 1 else 23
+startRow = 4
 
 workbook = load_workbook(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
-workbook.active = 0
+workbook.active = 1
 sheet = workbook.active
 
-for subject in range(1,11): # 1 to 11
+for subject in range(1,12): # 1 to 11
 
-  outlierThreshold = 60 if (subject != 9) else 30 # Cause Jeff talked a lot during the first session, but wasn't as bad as others
+  results = []  # note, category, delta time, num mistakes
+
   maxSession = 4 if subject != 11 else 2 # For Dad lol
-  for session in range(1,4): # 1 to 3
+  for session in range(1,maxSession): # 1 to 3
 
-    willPlot = False
     allFiles = listdir(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}")
-    files = [f for f in allFiles if f[-1] == str(mode)]
+    files = [f for f in allFiles if f[-1] in ["1", "2"]]
 
-    results = []  # note, category, delta time, num mistakes
 
     for fileName in files:
       f = open(f"C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Data for Analysis\\Subject {subject}\\Session {session}\\{fileName}", "r")
@@ -58,47 +57,25 @@ for subject in range(1,11): # 1 to 11
               category = "octave"
             elif ((vibration[i][0] >= 12) != (vibration[i-1][0] >= 12) and not vibration[i][3]):
               category = "crossing"
-            if (midi[j][1]-vibration[i][1])/1000000000 < outlierThreshold:
-              results.append((vibration[i][0], category, (midi[j][1]-vibration[i][1])/1000000000, numMistakes))
+            results.append((vibration[i][0], category, (midi[j][1]-vibration[i][1])/1000000000, numMistakes))
             j = j + 1
             foundNote = True
           else:
             numMistakes = numMistakes + 1
             j = j + 1
 
-    if len(results) == 0:
-      continue
+  if len(results) == 0:
+    continue
 
-    simpleResults = [a for a in results if a[1] == "simple"]
-    octaveResults = [a for a in results if not a[1] == "octave"]
-    crossingResults = [a for a in results if not a[1] == "crossing"]
+  noteDict = defaultdict(lambda : [0,0,0]) # note: time, mistakes, count
+  for result in results:
+    current = noteDict[result[0]%12]
+    noteDict[result[0]%12] = [current[0]+result[2], current[1]+result[3], current[2]+1]
 
-    sheet.cell(startRow,   subject*3 + session - 2).value = mean(a[2] for a in results)
-    sheet.cell(startRow+1, subject*3 + session - 2).value = mean(a[2] for a in simpleResults)
-    sheet.cell(startRow+2, subject*3 + session - 2).value = mean(a[2] for a in octaveResults)
-    sheet.cell(startRow+3, subject*3 + session - 2).value = mean(a[2] for a in crossingResults)
-    sheet.cell(startRow+4, subject*3 + session - 2).value = mean(a[3] for a in results)
-    sheet.cell(startRow+5, subject*3 + session - 2).value = mean(a[3] for a in simpleResults)
-    sheet.cell(startRow+6, subject*3 + session - 2).value = mean(a[3] for a in octaveResults)
-    sheet.cell(startRow+7, subject*3 + session - 2).value = mean(a[3] for a in crossingResults)
+  mappingToSheet = [0,0,1,1,2,3,3,4,4,5,5,6]
 
-    for index, i in enumerate([results, simpleResults, octaveResults, crossingResults]):
-
-      if willPlot:
-
-        plt.plot([a[2] for a in i], label=subject) # Time
-
-        plt.legend()
-        plt.ylabel("Time")
-        plt.title(f"Time for {['results', 'simpleResults', 'octaveResults', 'crossingResults'][index]}")
-        plt.show()
-
-      if willPlot:
-        plt.plot([a[3] for a in i], label=subject) # Mistakes
-
-        plt.legend()
-        plt.ylabel("Mistakes")
-        plt.title(f"Mistakes for {['results', 'simpleResults', 'octaveResults', 'crossingResults'][index]}")
-        plt.show()
+  for note in noteDict:
+    sheet.cell(startRow + mappingToSheet[int(note)], subject + 1).value = noteDict[note][0]/noteDict[note][2]
+    sheet.cell(startRow + mappingToSheet[int(note)] + 8, subject + 1).value = noteDict[note][1]/noteDict[note][2]
 
 workbook.save(filename="C:\\Users\\jlane\\Google Drive\\My Files\\McGill University\\Shared Reality Lab\\Thesis\\Analysis.xlsx")
