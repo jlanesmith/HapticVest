@@ -48,24 +48,30 @@ ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
 
 
-# Haptic vs audio scatterplot
+# Haptic vs audio scatterplot, haptic vs age scatterplot
+fig_scatter, axes_scatter = plt.subplots(nrows=1, ncols=2)
+fig_scatter.tight_layout(pad=3.0)
 
-data_scatter = [[] for i in range(numParticipants)]
+data_hapaud = [[] for i in range(numParticipants)]
+data_hapage = [[] for i in range(numParticipants)]
 for val in range(numParticipants):
   if val == 6:
     continue
   column = startColumn + val*3
-  data_scatter[val].append(sheet[f"{get_column_letter(column)}{56}"].value)
-  data_scatter[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
-df_scatter = pd.DataFrame(data_scatter, columns=["Audio score", "Haptic score"])
-ax = df_scatter.plot.scatter(x="Audio score",y="Haptic score")
+  data_hapaud[val].append(sheet[f"{get_column_letter(column)}{56}"].value)
+  data_hapaud[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
+  data_hapage[val].append(sheet[f"{get_column_letter(column)}{5}"].value)
+  data_hapage[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
 
+df_hapaud = pd.DataFrame(data_hapaud, columns=["Audio score", "Haptic score"])
+ax = df_hapaud.plot.scatter(x="Audio score",y="Haptic score",ax=axes_scatter[0])
+data_hapage = pd.DataFrame(data_hapage, columns=["Age", "Haptic score"])
+ax = data_hapage.plot.scatter(x="Age",y="Haptic score",ax=axes_scatter[1])
 
 # Box plot for timing and mistakes of notes
 workbook.active = 1
 sheet = workbook.active
 noteNames = ["C", "D", "E", "F", "G", "A", "B"]
-df_notes = [[None,None]]
 fig_notes, axes_notes = plt.subplots(nrows=1, ncols=2)
 fig_notes.tight_layout(pad=3.0)
 data_notes = [[[] for i in range(7)] for j in range(2)] 
