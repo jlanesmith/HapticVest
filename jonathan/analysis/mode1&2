@@ -70,17 +70,23 @@ for subject in range(1,11): # 1 to 11
       continue
 
     simpleResults = [a for a in results if a[1] == "simple"]
-    octaveResults = [a for a in results if not a[1] == "octave"]
-    crossingResults = [a for a in results if not a[1] == "crossing"]
+    octaveResults = [a for a in results if a[1] == "octave"]
+    crossingResults = [a for a in results if a[1] == "crossing"]
 
-    sheet.cell(startRow,   subject*3 + session - 2).value = mean(a[2] for a in results)
-    sheet.cell(startRow+1, subject*3 + session - 2).value = mean(a[2] for a in simpleResults)
-    sheet.cell(startRow+2, subject*3 + session - 2).value = mean(a[2] for a in octaveResults)
-    sheet.cell(startRow+3, subject*3 + session - 2).value = mean(a[2] for a in crossingResults)
-    sheet.cell(startRow+4, subject*3 + session - 2).value = mean(a[3] for a in results)
-    sheet.cell(startRow+5, subject*3 + session - 2).value = mean(a[3] for a in simpleResults)
-    sheet.cell(startRow+6, subject*3 + session - 2).value = mean(a[3] for a in octaveResults)
-    sheet.cell(startRow+7, subject*3 + session - 2).value = mean(a[3] for a in crossingResults)
+    def getMean(data):
+      if len(data) == 0:
+        return ""
+      else:
+        return mean(data)
+
+    sheet.cell(startRow,   subject*3 + session - 2).value = getMean([a[2] for a in results])
+    sheet.cell(startRow+1, subject*3 + session - 2).value = getMean([a[2] for a in simpleResults])
+    sheet.cell(startRow+2, subject*3 + session - 2).value = getMean([a[2] for a in octaveResults])
+    sheet.cell(startRow+3, subject*3 + session - 2).value = getMean([a[2] for a in crossingResults])
+    sheet.cell(startRow+4, subject*3 + session - 2).value = getMean([a[3] for a in results])
+    sheet.cell(startRow+5, subject*3 + session - 2).value = getMean([a[3] for a in simpleResults])
+    sheet.cell(startRow+6, subject*3 + session - 2).value = getMean([a[3] for a in octaveResults])
+    sheet.cell(startRow+7, subject*3 + session - 2).value = getMean([a[3] for a in crossingResults])
 
     for index, i in enumerate([results, simpleResults, octaveResults, crossingResults]):
 

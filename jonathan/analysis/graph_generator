@@ -42,18 +42,19 @@ for val in range(3*numParticipants):
     data_line[val%3].append(sheet[f"{get_column_letter(column)}{row}"].value)
 df_line = pd.DataFrame(data_line, columns=[f"P{i}" for i in range(1,11)], index=["Session 1", "Session 2", "Session 3"])
 ax = df_line.plot(marker='.')
-ax.set_ylabel("Time (s)" if category == 0 else "Haptic score")
+ax.set_ylabel("Haptic value")
 ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
 ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
 
 
 # Haptic vs audio scatterplot, haptic vs age scatterplot
-fig_scatter, axes_scatter = plt.subplots(nrows=1, ncols=2)
+fig_scatter, axes_scatter = plt.subplots(nrows=2, ncols=2)
 fig_scatter.tight_layout(pad=3.0)
 
 data_hapaud = [[] for i in range(numParticipants)]
 data_hapage = [[] for i in range(numParticipants)]
+data_haplessons = [[] for i in range(numParticipants)]
 for val in range(numParticipants):
   if val == 6:
     continue
@@ -62,11 +63,16 @@ for val in range(numParticipants):
   data_hapaud[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
   data_hapage[val].append(sheet[f"{get_column_letter(column)}{5}"].value)
   data_hapage[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
+  data_haplessons[val].append(sheet[f"{get_column_letter(column)}{6}"].value)
+  data_haplessons[val].append(sheet[f"{get_column_letter(column)}{59}"].value)
 
 df_hapaud = pd.DataFrame(data_hapaud, columns=["Audio score", "Haptic score"])
-ax = df_hapaud.plot.scatter(x="Audio score",y="Haptic score",ax=axes_scatter[0])
-data_hapage = pd.DataFrame(data_hapage, columns=["Age", "Haptic score"])
-ax = data_hapage.plot.scatter(x="Age",y="Haptic score",ax=axes_scatter[1])
+ax = df_hapaud.plot.scatter(x="Audio score",y="Haptic score",ax=axes_scatter[0][0])
+df_hapage = pd.DataFrame(data_hapage, columns=["Age", "Haptic score"])
+ax = df_hapage.plot.scatter(x="Age",y="Haptic score",ax=axes_scatter[0][1])
+df_haplessons = pd.DataFrame(data_haplessons, columns=["Years of Piano Lessons", "Haptic score"])
+ax = df_haplessons.plot.scatter(x="Years of Piano Lessons",y="Haptic score",ax=axes_scatter[1][0])
+ax.xaxis.set_major_locator(ticker.MultipleLocator(3))
 
 # Box plot for timing and mistakes of notes
 workbook.active = 1
